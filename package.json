@@ -10,8 +10,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "turbo run build",
     "clean": "turbo run clean",
+    "build": "turbo run build",
+    "prepack": "turbo run prepack",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "format": "eslint --fix .",
