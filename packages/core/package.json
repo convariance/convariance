@@ -1,0 +1,42 @@
+{
+  "name": "@convariance/core",
+  "version": "0.1.0",
+  "description": "The convariance engine core: the versioned wire protocol, the BridgeSession transcript/signal/delegation state machine, the pluggable Classifier seam, and the sub-speaker segmenter. Zero dependencies, isomorphic (Node, workerd, browsers).",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/convariance/convariance.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/convariance/convariance#readme",
+  "keywords": [
+    "transcript",
+    "ai-participant",
+    "mcp",
+    "claude-code",
+    "live-transcription",
+    "diarization"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

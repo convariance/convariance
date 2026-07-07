@@ -1,0 +1,20 @@
+{
+  // Whole-repo typecheck (tests + smoke fixtures included) with no emit; the
+  // per-package tsconfig.build.json files own the dist/ emit. Path-mapping the
+  // package names at their SOURCE entries keeps this a single one-shot check —
+  // no build order, always-fresh types.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "lib": ["es2022", "dom"],
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@convariance/core": ["packages/core/src/index.ts"],
+      "@convariance/gateway": ["packages/gateway/src/index.ts"],
+      "@convariance/client": ["packages/client/src/index.ts"]
+    }
+  },
+  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts"]
+}

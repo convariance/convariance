@@ -1,0 +1,56 @@
+{
+  "name": "@convariance/gateway",
+  "version": "0.1.0",
+  "description": "The convariance local gateway: one Node process bridging an MCP agent (Claude Code over stdio) and a live web session (HTTP + SSE), sharing one in-memory BridgeSession. Direct-drain mode out of the box — no API key required; plug a Classifier in for the reflex-style front door.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "bin": {
+    "convariance-gateway": "./dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.6.0",
+    "@convariance/core": "workspace:^",
+    "@silkweave/core": "^3.0.0",
+    "@silkweave/fastify": "^3.0.0",
+    "@silkweave/mcp": "^3.0.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/convariance/convariance.git",
+    "directory": "packages/gateway"
+  },
+  "homepage": "https://github.com/convariance/convariance#readme",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "claude-code",
+    "transcript",
+    "ai-participant",
+    "sse"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

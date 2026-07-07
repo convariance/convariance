@@ -1,0 +1,44 @@
+{
+  "name": "@convariance/client",
+  "version": "0.1.0",
+  "description": "The convariance browser SDK: feed transcript segments in, get typed AI contributions out as events. Sentence-level forwarding with a tail-idle backstop, SSE drain with poll fallback, idempotent delivery, mode-aware read receipts, and launch-URL pairing helpers.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json"
+  },
+  "dependencies": {
+    "@convariance/core": "workspace:^"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/convariance/convariance.git",
+    "directory": "packages/client"
+  },
+  "homepage": "https://github.com/convariance/convariance#readme",
+  "keywords": [
+    "transcript",
+    "ai-participant",
+    "sse",
+    "browser",
+    "claude-code"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}
