@@ -23,7 +23,9 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -b tsconfig.build.json"
+    "clean": "rimraf dist tsconfig.build.tsbuildinfo",
+    "build": "tsc -b tsconfig.build.json",
+    "prepack": "pnpm run clean && pnpm run build"
   },
   "dependencies": {
     "@clack/prompts": "^1.6.0",
