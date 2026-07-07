@@ -3,8 +3,7 @@
 // client. It knows the wire protocol and the forwarding/draining machinery, and
 // NOTHING about the app: segments are PUSHED in (pushSegments), and everything
 // it learns flows OUT as typed events the host adapts to its own state
-// (convariance's adapter is storeBridge.ts — store writes, audio cues, debug
-// panel).
+// (store writes, audio cues, a debug panel — whatever the app owns).
 //
 //   transcript out → POST /bridge/transcript (sentence-level stable finals)
 //   signals in     ← SSE /bridge/signals (preferred) or GET poll (fallback),
@@ -621,7 +620,7 @@ export function createBridgeClient(opts: BridgeClientOptions): BridgeClient {
     return `${base}/bridge/signals?since=${cursor}&token=${encodeURIComponent(token)}`
   }
 
-  // Health carries the token too: the hosted Worker routes /bridge/* (health
+  // Health carries the token too: a hosted deployment routes /bridge/* (health
   // included) to this user's session by the pairing token, so it can't be open
   // the way the single-session local gateway's health was. The local gateway
   // ignores the extra query param, so this is safe for both.

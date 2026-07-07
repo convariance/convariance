@@ -4,8 +4,8 @@
 //   Speaker | utterance text     (a blank line is a pause; '#' is a comment)
 //   @control | give the AI the floor   (a facilitator control line)
 //
-//   node src/bridge/dev/feed.ts [file]      (default: ./transcript.sample.txt)
-//   FEED_SPEED=0.3 node src/bridge/dev/feed.ts   # ~3x faster than realtime
+//   node packages/gateway/src/dev/feed.ts [file]   (default: ./transcript.sample.txt)
+//   FEED_SPEED=0.3 node packages/gateway/src/dev/feed.ts   # ~3x faster than realtime
 
 import { readFile } from 'node:fs/promises'
 import { readInfo, latestInfo } from '../runtime.ts'
@@ -22,8 +22,8 @@ const info = explicit ? readInfo(explicit) : latestInfo()
 if (!info) {
   process.stderr.write(
     `no running gateway found${explicit ? ` for port ${explicit}` : ''} — start it ` +
-      'first (pnpm gateway, or Claude Code with the bridge MCP server, then ' +
-      'GetSessionUrl / /brainstorm to boot the HTTP face).\n'
+      'first (pnpm gateway, or Claude Code with the convariance MCP server, then ' +
+      'GetSessionUrl to boot the HTTP face).\n'
   )
   process.exit(1)
 }
@@ -31,16 +31,21 @@ const base = `http://127.0.0.1:${info.port}`
 
 async function post(path: string, body: unknown): Promise<void> {
   for (let attempt = 0; attempt < 30; attempt++) {
+    let res: Response
     try {
-      await fetch(base + path, {
+      res = await fetch(base + path, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-bridge-token': info!.token },
         body: JSON.stringify(body || {})
       })
-      return
     } catch {
       await sleep(1000) // gateway not up yet — retry
+      continue
     }
+    if (!res.ok) {
+      throw new Error(`POST ${path} failed: ${res.status} ${res.statusText}`)
+    }
+    return
   }
   throw new Error(`could not reach gateway at ${base}`)
 }

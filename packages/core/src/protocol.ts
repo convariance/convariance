@@ -10,7 +10,8 @@
 // placeholder (a loading card) that a later signal with the same `id` completes.
 // v4 added the on-demand transcript history: a resumed session hands the gateway
 // its restored prior-round transcript (POST /bridge/history) into a PASSIVE
-// archive the agent reads only via `get_transcript` — it is never fed into the
+// archive read on demand (`BridgeSession.getTranscript()`; the v4 MCP recall
+// tool was retired by v6's sync_transcript) — it is never fed into the
 // live wait_for_transcript stream, so resuming doesn't make the AI re-react to
 // old lines, but the AI can still recall earlier context when the room asks.
 // All additive — older readers ignore the new endpoint/tool.
@@ -29,15 +30,15 @@
 // re-requestable pull (`{ session_id?, since } → { events, cursor, total }`) the
 // agent mirrors to a local JSONL it can grep. A real `session_id` (minted at
 // GetSessionUrl, carried in the paired URL + status) keys the log so prior
-// sessions can be listed / reloaded / deleted (the sessions index), and the
-// SessionDO persists the log to DO-SQLite so it survives eviction and a context
-// purge. The SPA becomes the read client (server is the system of record).
+// sessions can be listed / reloaded / deleted (the sessions index), and a
+// hosted deployment can persist the log durably so it survives eviction and a
+// context purge. The SPA becomes the read client (server is the system of record).
 // PRD 018 (the open-source core split) adds the gateway MODE, additively: a
 // gateway configured WITHOUT a classifier runs in `drain` mode — the agent
 // hears the room itself via `wait_for_transcript` (the pre-v5 loop, which never
 // left the session core), GetSessionUrl does not gate on `reflex_ready`, and
 // `delivered` (not `classified`) is the read-receipt cursor. Health stamps
-// `mode`; absent = `classifier` (older gateways / the hosted SessionDO).
+// `mode`; absent = `classifier` (older gateways / hosted deployments).
 export const PROTOCOL_VERSION = 6
 
 /** Default loopback port for the gateway's HTTP/WS face. */
@@ -146,17 +147,6 @@ export interface SignalInput {
   speak?: boolean
 }
 
-// --- MCP tool surface (gateway → Claude Code, §4.3) -------------------------
-
-export const TOOL = {
-  waitForDelegation: 'wait_for_delegation',
-  /** Drain mode only (PRD 018): the agent's own transcript heartbeat. */
-  waitForTranscript: 'wait_for_transcript',
-  sendSignal: 'send_signal',
-  sessionStatus: 'session_status',
-  syncTranscript: 'sync_transcript'
-} as const
-
 // --- Delegations (gateway reflex → agent, v5) -------------------------------
 
 /** A unit of work the reflex hands to the deliberate agent (Opus). The reflex
@@ -180,18 +170,20 @@ export interface WaitDelegationResult {
   idle: boolean
 }
 
-// --- On-demand transcript history (get_transcript, v4) ----------------------
+// --- On-demand transcript history (v4) ---------------------------------------
+// The read side is `BridgeSession.getTranscript()`; the v4 `get_transcript`
+// MCP tool it once backed was retired by v6's sync_transcript.
 
-/** One line returned by `get_transcript`. Spans both the restored prior-round
- *  archive and this round's lines, oldest→newest; the agent reads these for
- *  recall, it does not use them to anchor signals (those ref the live `seg`). */
+/** One line returned by `getTranscript()`. Spans both the restored prior-round
+ *  archive and this round's lines, oldest→newest; a reader uses these for
+ *  recall, not to anchor signals (those ref the live `seg`). */
 export interface HistoryLine {
   speaker: string
   text: string
   kind: 'speech' | 'control'
 }
 
-/** Return shape of `get_transcript`. `total` is the full known line count
+/** Return shape of `getTranscript()`. `total` is the full known line count
  *  (archive + this round) before any `limit`/`search`; `returned` is how many
  *  this call yielded. */
 export interface GetTranscriptResult {
@@ -260,7 +252,7 @@ export interface SessionStatus {
   protocol_version: number
   /** Which front door drives this gateway (PRD 018, additive). Stamped by the
    *  gateway health face, NOT by the session itself — absent means
-   *  `classifier` (older gateways / the hosted SessionDO). In `drain` mode the
+   *  `classifier` (older gateways / hosted deployments). In `drain` mode the
    *  read-receipt cursor is `delivered`, not `classified`, and `reflex_ready`
    *  carries no weight. */
   mode?: BridgeMode
@@ -288,13 +280,6 @@ export interface SessionStatus {
    *  back to park). `agent_connected && agent_working` ⇒ "working"; connected and
    *  not working ⇒ "listening". */
   agent_working: boolean
-}
-
-// --- HTTP face wire shapes (web ↔ gateway) ----------------------------------
-
-export interface SignalsResponse {
-  signals: Signal[]
-  total: number
 }
 
 // --- Debug channel (gateway → web, observability only) ----------------------

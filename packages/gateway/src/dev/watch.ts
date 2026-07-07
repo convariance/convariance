@@ -1,9 +1,9 @@
 // Dev tool — the other end of the gateway: renders the signals the agent sends
-// back, the way the web session's AI rail would (PRD 002). Drains the SSE push
+// back, the way a web session's AI rail would. Drains the SSE push
 // endpoint, pairing automatically via the gateway's token file (runtime.ts).
 //
-//   node src/bridge/dev/watch.ts
-//   BRIDGE_WATCH_POLL=1 node src/bridge/dev/watch.ts   # use HTTP polling instead
+//   node packages/gateway/src/dev/watch.ts
+//   BRIDGE_WATCH_POLL=1 node packages/gateway/src/dev/watch.ts   # use HTTP polling instead
 
 import type { Signal } from '@convariance/core'
 import { readInfo, latestInfo } from '../runtime.ts'

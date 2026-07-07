@@ -9,7 +9,7 @@ export {
   type StaticHandlerOptions
 } from './static.ts'
 export { agentActionsFor, browserActions, CTX_KEYS, type ReflexConfig } from './actions.ts'
-export { canOpenBrowser, openUrl, makeOpener, isRemote } from './launch.ts'
+export { canOpenBrowser, openUrl, makeOpener } from './launch.ts'
 export { makeLog } from './log.ts'
 export {
   mintToken,

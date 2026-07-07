@@ -1,0 +1,18 @@
+# Sample transcript for the feed dev tool (feed.ts) — replayed into a running
+# gateway at a roughly speech-paced cadence.
+# Format: Speaker | utterance
+#   blank line       = pause
+#   '#'              = comment
+#   @facilitator | … = control line (gives the AI the floor)
+
+Maya | Okay, the problem we keep coming back to is onboarding drop-off between signup and the first real project.
+Ben | Right — about half of new accounts never invite a teammate, and solo accounts churn within a month.
+
+Maya | What if the empty state just is the tutorial? The first project comes pre-seeded with sample data.
+Ben | We tried a checklist last quarter and engagement was underwhelming.
+Maya | A checklist is homework though. A pre-seeded project is something to poke at.
+
+@facilitator | Claude, any thoughts on what we've said so far?
+
+Ben | Separate thread: maybe the invite flow itself is the problem, it's two clicks deep behind settings.
+Maya | Fair — let's pull invites onto the project screen and measure that first.

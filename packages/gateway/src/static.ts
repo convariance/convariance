@@ -5,13 +5,12 @@
 // NOT a /bridge/* API route (see gateway.ts serverFactory); the API is Fastify.
 //
 // Generic (PRD 018): what the dist/ contains and which routes boot the SPA
-// shell are the CALLER's concern, passed as options. convariance's entry
-// (gateway-entry.ts) serves the PRD-017 dual-surface dist/ — Astro marketing
-// pages (index.html, how-it-works.html, 404.html, /_astro) plus the product
-// SPA shell as app.html (+ /assets), with the product prefixes mirroring the
-// hosted Worker's rewrite — so a launch URL (/app/session?…#token=…) boots the
-// SPA with its query/fragment untouched. Anything else is a file, or the 404
-// page when the bundle has one.
+// shell are the CALLER's concern, passed as options. A dual-surface dist/
+// works too — e.g. static marketing pages (index.html, how-it-works.html,
+// 404.html) alongside a product SPA shell (app.html + /assets), with
+// `spaPrefixes` naming which prefixes boot the shell — so a launch URL
+// (/app/session?…#token=…) boots the SPA with its query/fragment untouched.
+// Anything else is a file, or the 404 page when the bundle has one.
 
 import type http from 'node:http'
 import fs from 'node:fs'
@@ -105,8 +104,8 @@ export function createStaticHandler(
         sendFile(res, target)
         return
       }
-      // Clean marketing URLs: /how-it-works → how-it-works.html (Astro
-      // build.format 'file', mirroring the Worker's html_handling).
+      // Clean URLs: /how-it-works → how-it-works.html (static-site builds
+      // that emit one .html file per page).
       const htmlTarget = `${target}.html`
       if (rel && fs.existsSync(htmlTarget) && fs.statSync(htmlTarget).isFile()) {
         sendFile(res, htmlTarget)

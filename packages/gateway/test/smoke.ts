@@ -94,7 +94,9 @@ function sseCollect(path: string, ms: number): Promise<Json[]> {
         res.setEncoding('utf8')
         res.on('data', (d: string) => {
           acc += d
-          for (const block of acc.split('\n\n')) {
+          const cut = acc.lastIndexOf('\n\n')
+          if (cut < 0) return // no complete frame buffered yet
+          for (const block of acc.slice(0, cut).split('\n\n')) {
             const m = block.match(/^data: (.+)$/m)
             if (m?.[1] && m[1] !== '{}') {
               try {
@@ -104,7 +106,7 @@ function sseCollect(path: string, ms: number): Promise<Json[]> {
               }
             }
           }
-          acc = acc.slice(acc.lastIndexOf('\n\n') + 2)
+          acc = acc.slice(cut + 2)
         })
         setTimeout(() => {
           res.destroy()

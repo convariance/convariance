@@ -11,7 +11,7 @@
 //                      share one origin.
 //
 // Generic since PRD 018: the classifier and the static UI are OPTIONS wired by
-// an entry file (convariance's is gateway-entry.ts), so the gateway core knows
+// the caller's entry file, so the gateway core knows
 // nothing about the reflex or the dist/ layout. No classifier = drain mode:
 // the agent hears the room itself via WaitForTranscript.
 //

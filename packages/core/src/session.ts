@@ -24,7 +24,7 @@ import { PROTOCOL_VERSION } from './protocol.ts'
 import { ECHO_THRESHOLD, jaccard, tokenize } from './textSim.ts'
 
 /** Mint a fresh round id (PRD 011). `crypto.randomUUID` is global in both Node
- *  20+ (the local gateway) and workerd (the SessionDO). */
+ *  20+ (the local gateway) and workerd (a hosted session store). */
 function newSessionId(): string {
   return `s_${crypto.randomUUID()}`
 }
@@ -73,18 +73,18 @@ export interface SessionOptions {
 export class BridgeSession {
   // The current round's id (PRD 011) — minted here, re-minted on reset(), carried
   // in the paired URL + status, and the key the durable event log + sessions
-  // index use. The SessionDO reads it to key its SQLite rows.
+  // index use. A hosted deployment keys its durable rows by it.
   private sessionId: string = newSessionId()
   // The unified, append-only transcript-of-record: speech lines AND AI cards
   // interleaved in causal (append) order under one monotonic 1-based `idx` (the
   // sync cursor). This in-memory copy serves sync_transcript on the local gateway;
-  // the SessionDO additionally mirrors it to DO-SQLite for durability. Control
+  // a hosted deployment can additionally mirror it to durable storage. Control
   // lines are NOT logged (machinery, not conversation); pending loading cards are
   // not logged either — only a card's real content lands here.
   private events: EventLine[] = []
   private transcript: TranscriptLine[] = []
   // Restored prior-round history (web → POST /bridge/history on resume). PASSIVE:
-  // read only by get_transcript, never drained into wait_for_transcript — so a
+  // read only by getTranscript(), never drained into wait_for_transcript — so a
   // resume gives the agent recall without re-reacting to old lines (PRD 002/007).
   private archive: HistoryLine[] = []
   private signals: Signal[] = []
@@ -161,7 +161,7 @@ export class BridgeSession {
    *  id). */
   reset(adoptSessionId?: string): void {
     // A new round gets a fresh id + a fresh event log; prior sessions live on in
-    // the SessionDO's durable store (keyed by their own id), not here.
+    // a host's durable store (keyed by their own id), not here.
     this.sessionId = adoptSessionId ?? newSessionId()
     this.events = []
     this.transcript = []
@@ -286,7 +286,7 @@ export class BridgeSession {
 
   /** Replace the passive archive with a resumed session's restored history.
    *  Replaces (not appends) so a re-activate can't duplicate it. Does NOT wake
-   *  waiters — the archive is read-on-demand only (get_transcript), never part
+   *  waiters — the archive is read-on-demand only (getTranscript()), never part
    *  of the live drain. Returns the line count stored. */
   setArchive(inputs: TranscriptInput[]): number {
     this.archive = inputs
@@ -300,7 +300,7 @@ export class BridgeSession {
   }
 
   /** Read the full known transcript — restored history first, then this round so
-   *  far — for on-demand recall (get_transcript). `search` filters to lines
+   *  far — for on-demand recall. `search` filters to lines
    *  whose text contains it (case-insensitive); `limit` keeps the most recent N
    *  of the (optionally filtered) lines. `total` counts the whole transcript
    *  before filtering, so the agent can tell how much it didn't see. */
@@ -329,8 +329,8 @@ export class BridgeSession {
   /** Incremental read of the durable event log (sync_transcript, v6): the events
    *  with `idx > since`, plus the new high-water `cursor` and the session `total`.
    *  `since: 0` replays the whole round (the purged-context case). Serves the
-   *  LOCAL gateway from memory; the SessionDO overrides this from DO-SQLite so a
-   *  read survives eviction and spans prior sessions by id. */
+   *  LOCAL gateway from memory; a hosted deployment can override this with a
+   *  durable read that survives eviction and spans prior sessions by id. */
   eventsSince(since = 0): SyncTranscriptResult {
     const from = Math.max(0, Math.floor(since))
     return {
@@ -663,10 +663,6 @@ export class BridgeSession {
   /** Buffered events with seq >= since (the poll / SSE-backlog drain). */
   debugSince(since: number): DebugEvent[] {
     return this.debugBuffer.filter((e) => e.seq >= since)
-  }
-
-  get debugCount(): number {
-    return this.debugSeq
   }
 
   /** Subscribe to new debug events (live push). Returns an unsubscribe fn. */

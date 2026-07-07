@@ -239,7 +239,18 @@ const SyncTranscript = createAction({
       .optional()
       .describe('Which session to read (defaults to the live round).')
   }),
-  run: async ({ since }, ctx) => getSession(ctx).eventsSince(since)
+  run: async ({ since, session_id }, ctx) => {
+    const session = getSession(ctx)
+    // One in-memory session per gateway: a stale/foreign id must fail loudly
+    // rather than silently answering with the live round's events.
+    if (session_id && session_id !== session.getSessionId()) {
+      throw new Error(
+        `unknown session ${session_id} — this gateway serves only the live ` +
+          `round (${session.getSessionId()})`
+      )
+    }
+    return session.eventsSince(since)
+  }
 })
 
 const GetSessionUrl = createAction({
@@ -387,8 +398,9 @@ const PushHistory = createAction({
   name: 'push-history',
   description:
     'Web app → gateway: hand over a resumed session\'s restored prior-round ' +
-    'transcript. Stored in a passive archive the agent reads only via ' +
-    'get_transcript — never drained into the live wait_for_transcript stream.',
+    'transcript. Stored in a passive archive read on demand ' +
+    '(session.getTranscript()) — never drained into the live ' +
+    'wait_for_transcript stream.',
   method: 'POST',
   path: 'bridge/history',
   input: z.object({

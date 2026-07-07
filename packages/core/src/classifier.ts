@@ -3,7 +3,7 @@
 // (onTranscript / onReset), decides the room's reaction, and acts through the
 // public session surface — addSignal() for a card, delegate() to hand real
 // work to the agent, markClassified() to advance the read-receipt cursor.
-// convariance's Haiku reflex (reflex.ts) is one implementation; the gateway
+// Convariance Cloud's Haiku reflex is one implementation; the gateway
 // runs equally well with none at all (direct-drain mode — the agent hears the
 // room itself via WaitForTranscript).
 

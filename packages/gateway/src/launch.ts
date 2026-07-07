@@ -4,7 +4,6 @@
 // the URL is always returned/printed regardless, so a remote user just clicks it.
 
 import { spawn } from 'node:child_process'
-import os from 'node:os'
 
 /** Decide whether this process can sensibly open a desktop browser. */
 export function canOpenBrowser(): boolean {
@@ -50,9 +49,4 @@ export function makeOpener(log: (...p: unknown[]) => void): (url: string) => boo
     log(ok ? `opening the room: ${url}` : `could not open a browser — visit: ${url}`)
     return ok
   }
-}
-
-/** Detect whether we are almost certainly on a remote host (for messaging). */
-export function isRemote(): boolean {
-  return !canOpenBrowser() && os.platform() !== 'win32'
 }
