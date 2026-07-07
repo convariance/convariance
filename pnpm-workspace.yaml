@@ -7,5 +7,9 @@
 # dependency — otherwise every consumer install crashes at import.
 packages:
   - packages/*
+  - examples/*
+# esbuild's postinstall places the platform binary (vite dependency).
+allowBuilds:
+  esbuild: true
 overrides:
   zod: 3.25.76

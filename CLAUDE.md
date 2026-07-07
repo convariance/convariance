@@ -27,6 +27,7 @@ pnpm smoke          # 22-step gateway protocol smoke test — keyless, no API ke
 pnpm typecheck      # tsc --noEmit on the root solution
 pnpm lint           # eslint .          (pnpm format = eslint --fix .)
 pnpm gateway        # run the gateway bin from source (direct-drain mode)
+pnpm -F convariance-chat-example dev   # the chat example SPA on :5173
 pnpm changeset      # record a changeset for the next release
 pnpm release        # build + changeset publish
 ```
@@ -47,6 +48,15 @@ The protocol smoke test (`packages/gateway/test/smoke.ts`) drives the full
 gateway over real HTTP + MCP stdio with test fixtures: a stub classifier
 (`stubClassifier.ts`), a not-ready factory (`entry-notready.ts`, the hard-fail
 path), and the shipped drain-mode bin. It must pass keyless.
+
+`examples/chat` (workspace package `convariance-chat-example`, private, never
+published) is a framework-free Vite SPA for live-chatting with Claude Code —
+the reference consumer of `@convariance/client`. It pairs by pasting the
+launch URL (`parseLaunchParams` + the URL's origin as `endpoint`) and relies
+on `BRIDGE_ALLOWED_ORIGINS` for cross-origin serving. Deployed to GitHub
+Pages by `.github/workflows/pages.yml` (Pages must be set to the "GitHub
+Actions" source in repo settings). It is deliberately named OUTSIDE the
+`@convariance/*` scope so the changesets `fixed` group doesn't catch it.
 
 ## Package resolution (dev source vs. published build)
 

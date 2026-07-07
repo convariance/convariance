@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>convariance chat — live-chat with Claude Code</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <section id="connect" class="card" hidden>
+        <h1>convariance chat</h1>
+        <p class="tagline">
+          Live-chat with Claude Code. The gateway runs on <em>your</em> machine;
+          this page just talks to it.
+        </p>
+        <ol class="steps">
+          <li>
+            Register the gateway in your project's <code>.mcp.json</code> (see the
+            <a
+              href="https://github.com/convariance/convariance/tree/main/examples/chat"
+              target="_blank"
+              rel="noreferrer"
+              >README</a
+            >) and start Claude Code.
+          </li>
+          <li>
+            Ask Claude to join your conversation — it calls
+            <code>GetSessionUrl</code> and prints a launch URL.
+          </li>
+          <li>Paste that URL below.</li>
+        </ol>
+        <form id="connect-form">
+          <label>
+            Launch URL
+            <input
+              id="launch-url"
+              placeholder="http://127.0.0.1:7700/app/session?session=…#token=…"
+              autocomplete="off"
+              spellcheck="false"
+              required
+            />
+          </label>
+          <label>
+            Your name
+            <input id="display-name" value="You" autocomplete="off" required />
+          </label>
+          <button type="submit">Connect</button>
+          <p id="connect-error" class="error" hidden></p>
+        </form>
+      </section>
+
+      <section id="chat" hidden>
+        <header>
+          <div class="who">
+            <h1 id="chat-title">Live session</h1>
+            <p id="presence">Claude Code · connecting…</p>
+          </div>
+          <div class="conn">
+            <span id="status-dot" class="dot"></span>
+            <span id="status-text">connecting</span>
+            <button id="leave" type="button" title="End the round and disconnect">
+              Leave
+            </button>
+          </div>
+        </header>
+        <div id="messages" aria-live="polite"></div>
+        <p id="banner" hidden></p>
+        <form id="composer">
+          <input
+            id="input"
+            placeholder="Say something — mention “Claude” to address the AI directly"
+            autocomplete="off"
+          />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

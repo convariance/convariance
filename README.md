@@ -83,6 +83,20 @@ curl -X POST http://127.0.0.1:7700/bridge/transcript \
   -d '{"speaker": "Ada", "text": "What could we ship by Friday?"}'
 ```
 
+## Try it: the chat example
+
+[`examples/chat`](examples/chat) is a tiny static SPA (no framework) for
+live-chatting with Claude Code through the bridge — paste the launch URL
+`GetSessionUrl` printed and type. It doubles as the reference for using
+`@convariance/client`, and deploys to GitHub Pages:
+**https://convariance.github.io/convariance/** (the gateway still runs on
+your machine — see the example's [README](examples/chat/README.md) for the
+one-line CORS config).
+
+```sh
+pnpm -F convariance-chat-example dev   # local dev on :5173
+```
+
 ## Packages
 
 | Package | What | Runs in |
