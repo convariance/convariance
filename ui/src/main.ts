@@ -117,7 +117,7 @@ function showConnect(error?: string): void {
 
 // --- chat --------------------------------------------------------------------
 
-function startChat(pairing: Pairing): void {
+function startChat(pairing: Pairing, launchOpts: { autoRecord?: boolean } = {}): void {
   connectView.hidden = true
   chatView.hidden = false
   chatTitle.textContent = pairing.title || 'Live session'
@@ -354,6 +354,10 @@ function startChat(pairing: Pairing): void {
       if (micBtn.classList.contains('listening')) speech.stop()
       else speech.start()
     }
+    // A fresh launch lands in record mode: the agent opened this page to
+    // listen, so start the mic without another click. Chrome prompts for
+    // permission the first time; a denial just leaves typed chat.
+    if (launchOpts.autoRecord) speech.start()
   } else {
     micBtn.disabled = true
     micBtn.title = 'Voice input needs the Web Speech API (Chrome or Edge) — typing works everywhere'
@@ -417,7 +421,7 @@ if (own.present && own.token) {
   }
   history.replaceState(null, '', window.location.pathname)
   savePairing(pairing)
-  startChat(pairing)
+  startChat(pairing, { autoRecord: true })
 } else {
   const saved = loadPairing()
   if (saved) startChat(saved)

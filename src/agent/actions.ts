@@ -256,15 +256,18 @@ const SyncTranscript = createAction({
 const GetSessionUrl = createAction({
   name: 'get-session-url',
   description:
-    'Get the paired URL for the room and open it in the browser. Call this ' +
-    'once when the session starts: it boots the local web server (on the ' +
-    'first free port) and returns a loopback URL with the pairing token (and ' +
-    'optional title) already embedded, so the web app is configured on open — ' +
-    'the user just picks a mic and presses Start. On a remote/headless machine ' +
-    'it does not open a window; show the returned url. To JOIN a session the ' +
-    'user already has open in the web app (two-way connect: they gave you its ' +
-    'id), pass it as `session_id` — you attach to that live round instead of ' +
-    'starting a new one, and the user does not need to open the returned url.',
+    'START a convariance session: call this once when the user asks to begin ' +
+    '(e.g. "start a convariance session", "join my conversation"). It boots ' +
+    'the local web server (on the first free port) and opens the bundled web ' +
+    'UI in the user\'s browser via a loopback URL with the pairing token (and ' +
+    'optional title) embedded — the page auto-pairs and starts recording ' +
+    '(mic via the Web Speech API where available; typing always works). ' +
+    'Nothing runs until you call this. After it returns, park on the wait ' +
+    'tool to hear the room. On a remote/headless machine it does not open a ' +
+    'window; show the returned url. To JOIN a session the user already has ' +
+    'open in the web app (two-way connect: they gave you its id), pass it as ' +
+    '`session_id` — you attach to that live round instead of starting a new ' +
+    'one, and the user does not need to open the returned url.',
   disposition: 'json',
   input: z.object({
     title: z
