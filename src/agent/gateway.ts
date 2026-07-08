@@ -289,7 +289,16 @@ export async function startGateway(opts: GatewayOptions = {}): Promise<void> {
   // where no MCP client will ever call it. The smoke test and the real Claude
   // Code loop both go through GetSessionUrl, so they leave this off.
   if (process.env.BRIDGE_EAGER === '1') {
-    ensureHttpFace().catch((e) => log('eager http boot failed:', (e as Error)?.message))
+    // No MCP client will call GetSessionUrl in a standalone run, so print the
+    // paired launch URL here — same shape GetSessionUrl builds (the SPA adopts
+    // the live round id; the token rides the fragment).
+    ensureHttpFace()
+      .then(({ baseUrl }) => {
+        const sessionPath = opts.sessionPath ?? '/app/session'
+        const params = new URLSearchParams({ session: session.getSessionId() })
+        log(`launch url: ${baseUrl}${sessionPath}?${params.toString()}#token=${encodeURIComponent(token)}`)
+      })
+      .catch((e) => log('eager http boot failed:', (e as Error)?.message))
   } else {
     log('agent face on stdio; http face boots on first GetSessionUrl')
   }

@@ -32,8 +32,33 @@ also why the source sticks to erasable syntax only; the published package is
 compiled JS + d.ts and runs on Node ≥ 20).
 
 For UI work: run `BRIDGE_EAGER=1 pnpm gateway` in one terminal (binds the
-HTTP face without waiting for an MCP client) and `pnpm dev` in another —
-the gateway's default origin allowlist already covers :5173.
+HTTP face without waiting for an MCP client and prints a ready-to-open
+launch URL) and either open that URL (serves the built `dist/ui` — run
+`pnpm build` first) or run `pnpm dev` and paste the URL into :5173 — the
+gateway's default origin allowlist already covers the Vite dev origin.
+
+## Testing the npx flow before publishing
+
+`npx convariance` resolves from the registry only when the package isn't
+installed locally, so the pre-publish loop is:
+
+```sh
+# full flow from source, in any project (needs Node ≥ 22 on PATH):
+pnpm build   # so the gateway has dist/ui to serve
+claude mcp add convariance -- node /abs/path/to/convariance-oss/src/cli.ts
+# → start Claude Code there and ask it to join your conversation
+
+# or the published layout, exactly as npx will run it:
+pnpm build && pnpm pack                    # → convariance-X.Y.Z.tgz
+mkdir /tmp/try && cd /tmp/try && npm init -y
+npm i /path/to/convariance-X.Y.Z.tgz
+npx convariance                            # setup mode; npx resolves the
+                                           # local install, no registry hit
+```
+
+The `.mcp.json` that setup writes (`npx -y convariance`) also resolves to the
+local install, so the whole flow — setup, serve, packaged UI — behaves
+exactly as it will after `pnpm publish`.
 
 ## Style
 
