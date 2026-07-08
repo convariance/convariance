@@ -1,24 +1,37 @@
 {
-  // Whole-repo typecheck (tests + smoke fixtures included) with no emit; the
-  // per-package tsconfig.build.json files own the dist/ emit. Path-mapping the
-  // package names at their SOURCE entries keeps this a single one-shot check —
-  // no build order, always-fresh types.
-  "extends": "./tsconfig.base.json",
+  // One buildless, no-emit typecheck for everything: src, tests, smoke
+  // fixtures, the ui app, and the tool configs. tsdown owns the dist/ emit
+  // (JS via rolldown, d.ts via its dts plugin reading this file). The `paths`
+  // mapping pins the package self-name at its SOURCE entry — the ui imports
+  // `convariance` and always typechecks against fresh src/, never stale dist.
   "compilerOptions": {
+    "target": "es2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "lib": ["es2022", "dom"],
+    "lib": ["es2022", "dom", "dom.iterable"],
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@convariance/core": ["packages/core/src/index.ts"],
-      "@convariance/gateway": ["packages/gateway/src/index.ts"],
-      "@convariance/client": ["packages/client/src/index.ts"]
+      "convariance": ["src/index.ts"],
+      "convariance/agent": ["src/agent.ts"]
     }
   },
   "include": [
-    "packages/*/src/**/*.ts",
-    "packages/*/test/**/*.ts",
-    "examples/*/src/**/*.ts"
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "ui/src/**/*.ts",
+    "ui/vite.config.ts",
+    "tsdown.config.ts"
   ]
 }

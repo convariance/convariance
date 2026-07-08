@@ -22,7 +22,7 @@
 //   - dispose()         stop / leave / unmount — end the round (POST /bridge/end,
 //                       the agent stops listening) and tear everything down.
 
-import type { BridgeMode, Signal, SignalType, TranscriptInput } from '@convariance/core'
+import type { BridgeMode, Signal, SignalType, TranscriptInput } from '../core/index.ts'
 
 /** One transcript segment as the client sees it: the host resolves the display
  *  speaker before pushing (contact names etc. are its concern). A segment's

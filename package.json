@@ -1,38 +1,77 @@
 {
   "name": "convariance",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Put Claude Code (or any MCP agent) in your live conversation — transcript in, typed inline contributions out.",
+  "version": "0.2.0",
+  "description": "Put Claude Code (or any MCP agent) in your live conversation — transcript in, typed inline contributions out. `npx convariance` sets up the MCP server; the agent ships its own web UI with mic transcription.",
   "license": "Apache-2.0",
   "type": "module",
   "packageManager": "pnpm@11.8.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=20"
   },
+  "bin": {
+    "convariance": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./agent": {
+      "types": "./dist/agent.d.ts",
+      "default": "./dist/agent.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "clean": "turbo run clean",
-    "build": "turbo run build",
-    "prepack": "turbo run prepack",
+    "clean": "rimraf dist",
+    "build": "tsdown && vite build ui",
+    "dev": "vite dev ui",
+    "gateway": "node src/cli.ts serve",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "format": "eslint --fix .",
-    "test": "node --test \"packages/*/src/**/*.test.ts\"",
-    "smoke": "node packages/gateway/test/smoke.ts",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "smoke": "node test/smoke.ts",
     "check": "pnpm run typecheck && pnpm run lint",
-    "gateway": "node packages/gateway/src/bin.ts",
-    "changeset": "changeset",
-    "release": "pnpm run build && changeset publish",
-    "publish:all": "pnpm publish -r --access public"
+    "prepack": "pnpm run build"
+  },
+  "dependencies": {
+    "@silkweave/core": "^3.1.0",
+    "@silkweave/fastify": "^3.1.0",
+    "@silkweave/mcp": "^3.1.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.10",
     "@eslint/js": "^9.17.0",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^22.10.2",
     "eslint": "^9.17.0",
     "rimraf": "^6.0.1",
-    "turbo": "^2.5.0",
+    "tsdown": "^0.15.7",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.18.1"
-  }
+    "typescript-eslint": "^8.18.1",
+    "vite": "^7.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/convariance/convariance.git"
+  },
+  "homepage": "https://github.com/convariance/convariance#readme",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "claude-code",
+    "transcript",
+    "ai-participant",
+    "sse",
+    "browser",
+    "live-transcription"
+  ]
 }

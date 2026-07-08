@@ -1,14 +1,17 @@
-// Live-chat with Claude Code over the convariance bridge, built directly on
-// @convariance/client. Pairing: paste the launch URL GetSessionUrl printed —
-// its ORIGIN is the gateway endpoint, `?session` keys the round, and the
-// pairing token rides the #fragment (parseLaunchParams reads all three). Each
-// sent message becomes one transcript segment; the agent's typed contributions
+// Talk with Claude Code over the convariance bridge — type, or speak via the
+// Web Speech API (speech.ts) — built directly on the convariance browser SDK.
+// This page ships INSIDE the package: the gateway serves it same-origin at the
+// launch URL GetSessionUrl prints (?session keys the round, the pairing token
+// rides the #fragment), so opening that URL auto-pairs with zero setup. It is
+// still fully static — a host can serve it from another origin (paste the
+// launch URL, or deep-link with ?bridge=<gateway origin>) as long as that
+// origin is in the gateway's BRIDGE_ALLOWED_ORIGINS. Typed and spoken input
+// both become append-only transcript segments; the agent's contributions
 // stream back as `turn` events, with read receipts from `delivery` and
-// liveness from `presence`. This page is fully static — the gateway runs on
-// the user's machine and this SPA can be served from anywhere (GitHub Pages
-// included) as long as its origin is in the gateway's BRIDGE_ALLOWED_ORIGINS.
+// liveness from `presence`.
 
-import { createBridgeClient, parseLaunchParams } from '@convariance/client'
+import { createBridgeClient, parseLaunchParams } from 'convariance'
+import { createSpeechInput, speechAvailable } from './speech.ts'
 import type {
   BridgeClient,
   BridgeDeliveryEvent,
@@ -16,7 +19,7 @@ import type {
   BridgeSegment,
   BridgeStatusEvent,
   BridgeTurnEvent
-} from '@convariance/client'
+} from 'convariance'
 
 interface Pairing {
   endpoint: string
@@ -55,6 +58,19 @@ const messagesEl = $('messages')
 const bannerEl = $('banner')
 const composer = $<HTMLFormElement>('composer')
 const input = $<HTMLInputElement>('input')
+const micBtn = $<HTMLButtonElement>('mic')
+
+/** A spoken pause this long closes the open mic segment — mirrors the core
+ *  segmenter's pause threshold, and stays under the client's tailIdleMs so a
+ *  resumed utterance starts a NEW segment instead of double-sending. */
+const MIC_SEGMENT_GAP_MS = 3000
+
+/** Typed messages are complete on send: ensure sentence-final punctuation so
+ *  the client forwards them on the next flush tick instead of holding an
+ *  unpunctuated line back behind the speech tail-idle backstop. */
+function ensurePunctuated(text: string): string {
+  return /[.?!…]["')\]]*$/.test(text) ? text : `${text}.`
+}
 
 // --- pairing -----------------------------------------------------------------
 
@@ -119,9 +135,12 @@ function startChat(pairing: Pairing): void {
       ...(pairing.session
         ? { session: { id: pairing.session, ...(pairing.title ? { title: pairing.title } : {}) } }
         : {}),
-      // Typed chat: a message is complete the moment it is sent, so don't hold
-      // an unpunctuated line back the way the speech tail-idle backstop would.
-      params: { flushMs: 150, tailIdleMs: 300 }
+      // flushMs 150 keeps typed chat snappy (it only gates already-complete
+      // sentences); tailIdleMs 3200 is the speech knob — it holds a spoken,
+      // unpunctuated trailing partial long enough not to shear a thought, and
+      // stays ≥ MIC_SEGMENT_GAP_MS so continuations never double-send. Typed
+      // messages bypass the backstop entirely via ensurePunctuated().
+      params: { flushMs: 150, tailIdleMs: 3200 }
     })
   } catch (e) {
     savePairing(null)
@@ -133,7 +152,7 @@ function startChat(pairing: Pairing): void {
     messagesEl.scrollTop = messagesEl.scrollHeight
   }
 
-  function addUserMessage(text: string, segId: string): void {
+  function addUserMessage(text: string, segId: string): HTMLElement {
     const row = document.createElement('div')
     row.className = 'msg user'
     const bubble = document.createElement('div')
@@ -146,6 +165,7 @@ function startChat(pairing: Pairing): void {
     ticks.set(segId, tick)
     messagesEl.append(row)
     scrollDown()
+    return bubble
   }
 
   function aiRow(id: string): HTMLElement | null {
@@ -268,11 +288,85 @@ function startChat(pairing: Pairing): void {
   client.on('status', onStatus)
   client.activate()
 
+  // --- mic input (Web Speech API) -------------------------------------------
+  // Finals append to ONE open segment (append-only — the client forwards by
+  // per-segment char cursor); a pause ≥ MIC_SEGMENT_GAP_MS closes it so the
+  // next final opens a fresh segment/bubble. Interim text is volatile and only
+  // ever rendered in a ghost bubble, never pushed.
+
+  let micSeg: BridgeSegment | null = null
+  let micBubble: HTMLElement | null = null
+  let micLastFinal = 0
+  let ghostRow: HTMLElement | null = null
+
+  function renderInterim(text: string): void {
+    if (!text) {
+      ghostRow?.remove()
+      ghostRow = null
+      return
+    }
+    if (!ghostRow) {
+      ghostRow = document.createElement('div')
+      ghostRow.className = 'msg user ghost'
+      const bubble = document.createElement('div')
+      bubble.className = 'bubble'
+      ghostRow.append(bubble)
+    }
+    ghostRow.firstElementChild!.textContent = text
+    messagesEl.append(ghostRow) // re-append keeps it below the newest message
+    scrollDown()
+  }
+
+  const speech = createSpeechInput({
+    onFinal(text) {
+      const now = Date.now()
+      if (!micSeg || now - micLastFinal >= MIC_SEGMENT_GAP_MS) {
+        const segId = `v_${now.toString(36)}_${seq++}`
+        micSeg = { id: segId, speaker: pairing.name, text }
+        segments.push(micSeg)
+        micBubble = addUserMessage(text, segId)
+      } else {
+        micSeg.text += ` ${text}`
+        if (micBubble) micBubble.textContent = micSeg.text
+      }
+      micLastFinal = now
+      client.pushSegments([...segments])
+      scrollDown()
+    },
+    onInterim: renderInterim,
+    onStateChange(state) {
+      micBtn.classList.toggle('listening', state === 'listening')
+      micBtn.setAttribute('aria-pressed', String(state === 'listening'))
+      if (state === 'denied') {
+        bannerEl.textContent =
+          'Microphone access was blocked — allow it in the browser and try again.'
+        bannerEl.hidden = false
+      }
+      if (state !== 'listening') {
+        micSeg = null
+        micBubble = null
+      }
+    }
+  })
+
+  if (speechAvailable()) {
+    micBtn.onclick = () => {
+      if (micBtn.classList.contains('listening')) speech.stop()
+      else speech.start()
+    }
+  } else {
+    micBtn.disabled = true
+    micBtn.title = 'Voice input needs the Web Speech API (Chrome or Edge) — typing works everywhere'
+  }
+
   composer.onsubmit = (e) => {
     e.preventDefault()
-    const text = input.value.trim()
-    if (!text) return
+    const raw = input.value.trim()
+    if (!raw) return
     input.value = ''
+    const text = ensurePunctuated(raw)
+    micSeg = null // a typed message settles any open mic segment
+    micBubble = null
     const segId = `m_${Date.now().toString(36)}_${seq++}`
     segments.push({ id: segId, speaker: pairing.name, text })
     addUserMessage(text, segId)
@@ -280,6 +374,7 @@ function startChat(pairing: Pairing): void {
   }
 
   leaveBtn.onclick = () => {
+    speech.stop()
     client.dispose() // ends the round: POST /bridge/end, the agent stops listening
     savePairing(null)
     messagesEl.replaceChildren()
@@ -305,14 +400,16 @@ connectForm.onsubmit = (e) => {
   }
 }
 
-// A launch URL can also target this page directly (?session=…#token=… plus
-// ?bridge=<gateway origin>): a host that serves the SPA elsewhere can hand out
-// deep links. Fall back to the saved pairing, then the connect screen.
+// The primary flow: the gateway serves this page same-origin, so the launch
+// URL GetSessionUrl prints (?session=…#token=…) lands here and auto-pairs
+// against our own origin. A host serving the SPA elsewhere can still hand out
+// deep links with ?bridge=<gateway origin>. Fall back to the saved pairing,
+// then the paste-a-URL connect screen.
 const own = parseLaunchParams(window.location.href)
 const bridgeParam = new URL(window.location.href).searchParams.get('bridge')
-if (own.present && own.token && bridgeParam) {
+if (own.present && own.token) {
   const pairing: Pairing = {
-    endpoint: new URL(bridgeParam).origin,
+    endpoint: bridgeParam ? new URL(bridgeParam).origin : window.location.origin,
     token: own.token,
     session: own.session,
     title: own.title,

@@ -1,4 +1,4 @@
-// @convariance/core — the engine heart: the versioned wire protocol, the
+// The engine heart: the versioned wire protocol, the
 // BridgeSession state machine (transcript/signal/delegation queues, durable
 // event log, waiters), the pluggable Classifier seam, the text-similarity
 // guards, and the sub-speaker segmenter. Zero dependencies, isomorphic —

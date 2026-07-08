@@ -7,13 +7,13 @@
 // (401), the signal round-trip over HTTP poll + SSE, the durable transcript
 // sync, the v5 hard-fail (a not-ready classifier refuses the round), and
 // direct-drain mode (no classifier → WaitForTranscript, keyless — the shipped
-// bin's default).
+// bin's default, including the static web UI served from the gateway origin).
 //
-//   node packages/gateway/test/smoke.ts   → PASS/FAIL per step, exit 0 iff all pass
+//   node test/smoke.ts   → PASS/FAIL per step, exit 0 iff all pass
 
 import http from 'node:http'
 import { spawn } from 'node:child_process'
-import { PROTOCOL_VERSION } from '@convariance/core'
+import { PROTOCOL_VERSION } from '../src/core/index.ts'
 
 const PORT = 7791
 const TOKEN = 'smoke-token'
@@ -29,7 +29,7 @@ type Json = Record<string, any>
 // becomes a delegation so we can drive the wait_for_delegation round-trip.
 const stubEntry = new URL('./entry-stub.ts', import.meta.url).pathname
 const notReadyEntry = new URL('./entry-notready.ts', import.meta.url).pathname
-const drainEntry = new URL('../src/bin.ts', import.meta.url).pathname
+const drainEntry = new URL('../src/cli.ts', import.meta.url).pathname
 const child = spawn('node', [stubEntry], {
   // BRIDGE_NO_OPEN keeps GetSessionUrl from popping a real browser in CI/dev.
   env: {
@@ -404,14 +404,17 @@ async function checkHardFail(): Promise<void> {
 // Direct-drain mode: a gateway with NO classifier configured must run keyless —
 // WaitForTranscript replaces WaitForDelegation in the tool set, GetSessionUrl
 // does not gate on reflex_ready, health stamps mode:'drain', and a pushed
-// transcript line drains straight to the agent. Runs the SHIPPED bin, which is
-// drain mode by definition.
+// transcript line drains straight to the agent. Runs the SHIPPED bin (the
+// dual-mode CLI — piped stdio must select serve mode), which is drain mode by
+// definition. BRIDGE_DIST points at a fixture bundle so the static-UI path is
+// exercised without a vite build.
 async function checkDrainMode(): Promise<void> {
   const port = PORT + 2
   const token = 'drain-token'
   const gw = spawnGateway(drainEntry, port, {
     BRIDGE_TOKEN: token,
-    BRIDGE_NO_ENV: '1'
+    BRIDGE_NO_ENV: '1',
+    BRIDGE_DIST: new URL('./fixtures/ui', import.meta.url).pathname
   })
   try {
     await gw.init('smoke-drain')
@@ -443,6 +446,15 @@ async function checkDrainMode(): Promise<void> {
       }).on('error', reject)
     })
     check('drain mode health stamps mode', health.mode === 'drain', `mode=${health.mode}`)
+
+    // The non-/bridge surface serves the web UI: the launch URL's path must
+    // come back as the SPA shell (here the fixture, standing in for dist/ui).
+    const shell = await fetch(`http://127.0.0.1:${port}/app/session`).then((r) => r.text())
+    check(
+      'gateway serves the web UI at the launch path',
+      shell.includes('convariance-smoke-ui-fixture'),
+      `${shell.length} bytes`
+    )
 
     // Push a line over HTTP, then drain it via WaitForTranscript.
     const wait = gw.call('tools/call', {

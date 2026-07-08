@@ -1,10 +1,10 @@
 # The wire protocol
 
 The protocol is the contract between the three parties in a live session: the
-**web app** (browser, via `@convariance/client`), the **gateway** (one local
+**web app** (browser, via the `convariance` client SDK), the **gateway** (one local
 Node process), and the **agent** (Claude Code over MCP stdio). It is versioned
-separately from the packages: `PROTOCOL_VERSION` (currently **6**) lives in
-`packages/core/src/protocol.ts` and is reported by `GET /bridge/health`, so
+separately from the package: `PROTOCOL_VERSION` (currently **6**) lives in
+`src/core/protocol.ts` and is reported by `GET /bridge/health`, so
 either side can detect a mismatch. All changes so far have been additive.
 
 ## Version history
@@ -74,19 +74,19 @@ drop, so nothing is lost or duplicated.
   overrides). Every `/bridge/*` request must carry it — `x-bridge-token`
   header, or `?token=` in the query for `EventSource` (which cannot set
   headers).
-- Browser requests are additionally origin-gated: same-origin + Vite dev
-  origins by default, `BRIDGE_ALLOWED_ORIGINS` (comma-separated) wins verbatim
-  — this is how an externally-hosted UI (e.g. the GitHub Pages chat example)
-  is allowed in.
+- Browser requests are additionally origin-gated: same-origin (the packaged
+  UI's case) + Vite dev origins by default, `BRIDGE_ALLOWED_ORIGINS`
+  (comma-separated) wins verbatim — that is how an externally-hosted UI is
+  allowed in.
 - **Launch URL**: `http://127.0.0.1:<port><sessionPath>?session=<id>&title=…#token=<t>`.
   The token rides the **fragment** so it never reaches a server or its logs;
-  `?session` keys the durable log. `@convariance/client` ships the pure parser
+  `?session` keys the durable log. The `convariance` client SDK ships the pure parser
   (`parseLaunchParams`) and `consumeLaunchParams()` (parses + strips the
   address bar).
 
 ## The turn lifecycle (how signals render)
 
-`@convariance/client` derives an inline-contribution lifecycle from the signal
+The `convariance` client SDK derives an inline-contribution lifecycle from the signal
 stream: `open` (a `pending` signal opened a loading card) → `update`
 (queued/label changed) → `fill` (a signal with the same `id` completes it), or
 plain `add` for terminal cards. Delivery events give per-segment `sent`

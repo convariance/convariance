@@ -301,3 +301,29 @@ code {
   flex: 1;
   margin: 0;
 }
+
+/* --- mic --- */
+
+#mic {
+  background: transparent;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+}
+
+#mic:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#mic.listening {
+  border-color: var(--error);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* the volatile interim transcript — display-only, never forwarded */
+.msg.user.ghost .bubble {
+  background: transparent;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-style: italic;
+}

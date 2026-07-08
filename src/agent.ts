@@ -1,16 +1,17 @@
-// @convariance/gateway — the local Node gateway (programmatic surface). The
-// shipped bin (bin.ts / `convariance-gateway`) runs direct-drain mode; import
-// startGateway here to wire your own Classifier or a static UI bundle.
+// convariance/agent — the local Node gateway (programmatic surface). The
+// shipped bin (cli.ts / `npx convariance`) runs direct-drain mode with the
+// packaged web UI; import startGateway here to wire your own Classifier or a
+// custom static UI bundle.
 
-export { startGateway, type GatewayOptions } from './gateway.ts'
+export { startGateway, type GatewayOptions } from './agent/gateway.ts'
 export {
   createStaticHandler,
   type StaticHandler,
   type StaticHandlerOptions
-} from './static.ts'
-export { agentActionsFor, browserActions, CTX_KEYS, type ReflexConfig } from './actions.ts'
-export { canOpenBrowser, openUrl, makeOpener } from './launch.ts'
-export { makeLog } from './log.ts'
+} from './agent/static.ts'
+export { agentActionsFor, browserActions, CTX_KEYS, type ReflexConfig } from './agent/actions.ts'
+export { canOpenBrowser, openUrl, makeOpener } from './agent/launch.ts'
+export { makeLog } from './agent/log.ts'
 export {
   mintToken,
   loadBridgeEnv,
@@ -20,4 +21,4 @@ export {
   listInfos,
   latestInfo,
   type BridgeInfo
-} from './runtime.ts'
+} from './agent/runtime.ts'

@@ -5,7 +5,7 @@
 // through the public Classifier seam, with no model behind it. Also a minimal
 // reference for writing a real classifier.
 
-import type { BridgeSession, Classifier, ReflexParams } from '@convariance/core'
+import type { BridgeSession, Classifier, ReflexParams } from '../src/core/index.ts'
 
 const STUB_PARAMS: ReflexParams = {
   debounceMs: 0,

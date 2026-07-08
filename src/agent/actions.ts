@@ -13,14 +13,14 @@
 
 import { createAction } from '@silkweave/core'
 import { z } from 'zod/v4'
-import type { BridgeSession } from '@convariance/core'
+import type { BridgeSession } from '../core/index.ts'
 import type {
   BridgeMode,
   ReflexParams,
   SignalInput,
   SignalType
-} from '@convariance/core'
-import { SIGNAL_TYPES } from '@convariance/core'
+} from '../core/index.ts'
+import { SIGNAL_TYPES } from '../core/index.ts'
 
 /** Read / patch the live reflex params; null when no reflex is wired. */
 export interface ReflexConfig {

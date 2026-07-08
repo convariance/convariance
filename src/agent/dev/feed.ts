@@ -4,8 +4,8 @@
 //   Speaker | utterance text     (a blank line is a pause; '#' is a comment)
 //   @control | give the AI the floor   (a facilitator control line)
 //
-//   node packages/gateway/src/dev/feed.ts [file]   (default: ./transcript.sample.txt)
-//   FEED_SPEED=0.3 node packages/gateway/src/dev/feed.ts   # ~3x faster than realtime
+//   node src/agent/dev/feed.ts [file]   (default: ./transcript.sample.txt)
+//   FEED_SPEED=0.3 node src/agent/dev/feed.ts   # ~3x faster than realtime
 
 import { readFile } from 'node:fs/promises'
 import { readInfo, latestInfo } from '../runtime.ts'

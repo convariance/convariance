@@ -2,10 +2,10 @@
 // back, the way a web session's AI rail would. Drains the SSE push
 // endpoint, pairing automatically via the gateway's token file (runtime.ts).
 //
-//   node packages/gateway/src/dev/watch.ts
-//   BRIDGE_WATCH_POLL=1 node packages/gateway/src/dev/watch.ts   # use HTTP polling instead
+//   node src/agent/dev/watch.ts
+//   BRIDGE_WATCH_POLL=1 node src/agent/dev/watch.ts   # use HTTP polling instead
 
-import type { Signal } from '@convariance/core'
+import type { Signal } from '../../core/index.ts'
 import { readInfo, latestInfo } from '../runtime.ts'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))

@@ -1,7 +1,19 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 
-// BASE_PATH lets the GitHub Pages workflow build for a project-site prefix
-// (e.g. /convariance/); local dev and plain hosts default to '/'.
+// The packaged web UI. `convariance` resolves to SOURCE (not the package
+// self-reference → stale dist) so dev and build always compile fresh src/;
+// tsconfig `paths` mirrors this for the typechecker. Built straight into
+// dist/ui, where the gateway's static handler (cli.ts resolveUiDir) finds it.
 export default defineConfig({
-  base: process.env.BASE_PATH || '/'
+  base: '/',
+  resolve: {
+    alias: {
+      convariance: fileURLToPath(new URL('../src/index.ts', import.meta.url))
+    }
+  },
+  build: {
+    outDir: fileURLToPath(new URL('../dist/ui', import.meta.url)),
+    emptyOutDir: true
+  }
 })

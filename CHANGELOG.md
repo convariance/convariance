@@ -1,0 +1,32 @@
+# convariance
+
+## 0.2.0
+
+**One package.** The `@convariance/core`, `@convariance/client`, and
+`@convariance/gateway` monorepo collapses into a single `convariance` package
+(those three are deprecated on npm). No wire-protocol change — still
+protocol v6.
+
+- **`npx convariance` is the whole install**: run it in a terminal and it
+  registers the MCP server with Claude Code (`claude mcp add`, falling back
+  to writing `.mcp.json`); when Claude Code spawns it, it runs the agent.
+  Explicit `convariance setup` / `convariance serve` subcommands override the
+  detection. Replaces the `convariance-gateway` bin.
+- **The web UI ships in the package** and is served by the gateway from its
+  own loopback origin — the launch URL auto-pairs with zero setup. GitHub
+  Pages hosting of the chat example is gone (`BRIDGE_DIST` still swaps in a
+  custom bundle; `BRIDGE_ALLOWED_ORIGINS` still admits external hosts).
+- **Mic transcription** in the bundled UI via the Web Speech API
+  (Chrome/Edge) — speak or type, no external STT service, no API keys.
+- **New import surface**: `convariance` (core + browser client, zero-dep,
+  isomorphic) and `convariance/agent` (`startGateway`, static handler,
+  pairing runtime — Node). Migration: `@convariance/core` and
+  `@convariance/client` → `convariance`; `@convariance/gateway` →
+  `convariance/agent`.
+- Build moved to tsdown (+ vite for the UI); releases are plain
+  `pnpm version` + this changelog (changesets removed).
+
+## 0.1.1 and earlier
+
+See the per-package CHANGELOGs in the repo history
+(`packages/*/CHANGELOG.md` before the single-package restructure).

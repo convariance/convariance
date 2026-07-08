@@ -20,3 +20,12 @@ jobs:
       - run: pnpm check
       - run: pnpm test
       - run: pnpm smoke
+      # The publishable artifact must carry the bin, both typed entries, and
+      # the built web UI — a missing dist/ui ships a gateway with no page.
+      - name: pack sanity
+        run: |
+          pnpm pack
+          tar -tzf convariance-*.tgz | grep -q 'package/dist/cli.js'
+          tar -tzf convariance-*.tgz | grep -q 'package/dist/index.d.ts'
+          tar -tzf convariance-*.tgz | grep -q 'package/dist/agent.d.ts'
+          tar -tzf convariance-*.tgz | grep -q 'package/dist/ui/index.html'

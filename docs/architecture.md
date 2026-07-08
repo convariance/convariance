@@ -2,7 +2,7 @@
 
 ## One process, two faces
 
-The gateway (`startGateway`, `packages/gateway/src/gateway.ts`) is a single
+The gateway (`startGateway`, `src/agent/gateway.ts`) is a single
 Node process holding **one in-memory `BridgeSession`** shared by two adapters:
 
 - **stdio MCP** — starts immediately; it is how Claude Code reaches the
@@ -21,8 +21,21 @@ The two faces MUST be one process — that is what lets them share the session.
 The HTTP server is split by a `serverFactory`: `/bridge/*` goes to Fastify
 (token + Origin enforced before the handler; OPTIONS passes through for CORS
 preflight; `/bridge/health` skips the origin gate), everything else goes to
-the optional `staticHandler` (`createStaticHandler(dir, { spaPrefixes,
-spaShell, missingMessage })`) or a plain 404.
+the `staticHandler` (`createStaticHandler(dir, { spaPrefixes, spaShell,
+missingMessage })`) or a plain 404. The shipped bin (`src/cli.ts`) always
+wires a static handler: the **packaged web UI** in `dist/ui` (resolved
+relative to the module, so it works from the published tarball and a source
+checkout alike), or whatever `BRIDGE_DIST` points at.
+
+## The CLI (dual-mode bin)
+
+`npx convariance` (`src/cli.ts`) picks its mode by context: spawned over
+pipes by an MCP client → **serve** (the gateway above); run from a terminal
+(TTY, and `CI` unset) → **setup**, which registers the MCP server with Claude
+Code (`claude mcp add`, falling back to merging `.mcp.json` in the cwd — the
+only file the package ever writes). Explicit `convariance serve` /
+`convariance setup` subcommands override the detection. In serve mode the CLI
+never touches stdout or stdin — silkweave's stdio adapter owns both.
 
 ## Environment variables
 
@@ -31,6 +44,7 @@ spaShell, missingMessage })`) or a plain 404.
 | `BRIDGE_PORT` | first port to try (default 7700) |
 | `BRIDGE_HOST` | bind host (default `127.0.0.1`) |
 | `BRIDGE_TOKEN` | fixed pairing token (default: minted per process) |
+| `BRIDGE_DIST` | serve a custom UI bundle instead of the packaged `dist/ui` |
 | `BRIDGE_ALLOWED_ORIGINS` | comma-separated CORS allowlist, wins verbatim over the same-origin + Vite-dev defaults |
 | `BRIDGE_MAX_BLOCK_SEC` | blocking-wait cap (default 50 — measured safe under a 55 s tool-call ceiling) |
 | `BRIDGE_EAGER=1` | boot the HTTP face at startup (standalone/curl runs where no MCP client will call `GetSessionUrl`); stdin-EOF shutdown is disabled in this mode |
@@ -48,7 +62,7 @@ The token never leaves loopback.
 
 ## BridgeSession (core)
 
-The shared state machine (`packages/core/src/session.ts`):
+The shared state machine (`src/core/session.ts`):
 
 - **Blocking waits** — `WaitForTranscript` / `WaitForDelegation` park in a
   waiter until new work arrives or the cap expires (`idle: true`). This is the
@@ -71,7 +85,7 @@ The shared state machine (`packages/core/src/session.ts`):
 
 ## The client (browser SDK)
 
-`createBridgeClient` (`packages/client/src/bridgeClient.ts`) owns the wire
+`createBridgeClient` (`src/client/bridgeClient.ts`) owns the wire
 discipline, and nothing else — the host app owns rendering/persistence:
 
 - **Sentence-level forwarding**: pushed segments are split at sentence
@@ -92,9 +106,9 @@ discipline, and nothing else — the host app owns rendering/persistence:
 
 ## Dev tools
 
-`packages/gateway/src/dev/feed.ts` replays a transcript file into a running
+`src/agent/dev/feed.ts` replays a transcript file into a running
 gateway at speech pace (`transcript.sample.txt` documents the line format);
 `dev/watch.ts` renders the signal stream the way a web UI would. Both pair via
-the tmpdir info file. The protocol smoke (`packages/gateway/test/smoke.ts`)
+the tmpdir info file. The protocol smoke (`test/smoke.ts`)
 spawns real gateways (stub-classifier, not-ready, and drain-bin fixtures) and
 drives both faces; it must pass keyless.

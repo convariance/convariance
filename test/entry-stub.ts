@@ -3,7 +3,7 @@
 // wires startGateway (convariance's private reflex entry has this exact
 // shape).
 
-import { startGateway } from '../src/gateway.ts'
+import { startGateway } from '../src/agent/gateway.ts'
 import { stubClassifier } from './stubClassifier.ts'
 
 await startGateway({ classifier: stubClassifier })

@@ -9,26 +9,18 @@
   <body>
     <main id="app">
       <section id="connect" class="card" hidden>
-        <h1>convariance chat</h1>
+        <h1>convariance</h1>
         <p class="tagline">
-          Live-chat with Claude Code. The gateway runs on <em>your</em> machine;
-          this page just talks to it.
+          Talk with Claude Code — speak or type. The agent runs on
+          <em>your</em> machine; this page just talks to it.
         </p>
         <ol class="steps">
-          <li>
-            Register the gateway in your project's <code>.mcp.json</code> (see the
-            <a
-              href="https://github.com/convariance/convariance/tree/master/examples/chat"
-              target="_blank"
-              rel="noreferrer"
-              >README</a
-            >) and start Claude Code.
-          </li>
+          <li>Run <code>npx convariance</code> in your project and start Claude Code.</li>
           <li>
             Ask Claude to join your conversation — it calls
-            <code>GetSessionUrl</code> and prints a launch URL.
+            <code>GetSessionUrl</code> and opens this page already paired.
           </li>
-          <li>Paste that URL below.</li>
+          <li>Seeing this screen instead? Paste the launch URL Claude printed.</li>
         </ol>
         <form id="connect-form">
           <label>
@@ -72,6 +64,9 @@
             placeholder="Say something — mention “Claude” to address the AI directly"
             autocomplete="off"
           />
+          <button id="mic" type="button" title="Voice input (Web Speech API)" aria-pressed="false">
+            🎤
+          </button>
           <button type="submit">Send</button>
         </form>
       </section>

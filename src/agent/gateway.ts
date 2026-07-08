@@ -37,8 +37,8 @@ import http from 'node:http'
 import { silkweave } from '@silkweave/core'
 import { stdio } from '@silkweave/mcp'
 import { fastify } from '@silkweave/fastify'
-import { BridgeSession } from '@convariance/core'
-import type { ClassifierFactory } from '@convariance/core'
+import { BridgeSession } from '../core/index.ts'
+import type { ClassifierFactory } from '../core/index.ts'
 import { agentActionsFor, browserActions, CTX_KEYS, type ReflexConfig } from './actions.ts'
 import type { StaticHandler } from './static.ts'
 import { makeOpener } from './launch.ts'
@@ -48,7 +48,7 @@ import {
   BRIDGE_DEFAULT_PORT,
   PROTOCOL_VERSION,
   type BridgeMode
-} from '@convariance/core'
+} from '../core/index.ts'
 
 export interface GatewayOptions {
   /** The pluggable front-door classifier (the v5 sole-classifier loop). Called

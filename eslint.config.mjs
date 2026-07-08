@@ -106,6 +106,6 @@ export default defineConfig(
     extends: [tseslint.configs.disableTypeChecked]
   },
   {
-    ignores: ['**/dist/', '**/node_modules/', '.changeset/']
+    ignores: ['**/dist/', '**/node_modules/']
   }
 )

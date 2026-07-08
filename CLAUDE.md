@@ -7,57 +7,64 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 convariance is the engine for an AI participant in a live conversation: a live
 transcript streams in, an MCP agent (Claude Code) hears it, and typed inline
 contributions flow back into the room while people are still talking. This
-repo is the open-source transport/sequencing core that powers
-[Convariance Cloud](https://www.convariance.com).
+repo is one npm package — `convariance` — the open-source transport/sequencing
+core that powers [Convariance Cloud](https://www.convariance.com), plus the
+npx-runnable agent with a bundled web UI (mic via the Web Speech API, no
+external services).
 
 ```
- mic / STT ──▶ @convariance/client ──▶ @convariance/gateway ──▶ Claude Code
- (your app)      sentence forwarding      one Node process         parks on a
-                 SSE drain, receipts       stdio MCP + HTTP        blocking wait
+ mic / typing ──▶ web UI (dist/ui) ──▶ convariance agent ──▶ Claude Code
+ Web Speech API    sentence forwarding    one Node process      parks on a
+                   SSE drain, receipts    stdio MCP + HTTP      blocking wait
 ```
 
 ## Commands
 
 ```bash
-pnpm build          # turbo run build — tsc -b per package, ordered by deps, cached
-pnpm clean          # turbo run clean — rimraf dist + tsbuildinfo in every package
+pnpm build          # tsdown (dist/index|agent|cli) THEN vite build ui (dist/ui) — order matters
+pnpm clean          # rimraf dist
 pnpm check          # typecheck + lint
-pnpm test           # node --test over packages/*/src/**/*.test.ts (buildless, type-stripping)
-pnpm smoke          # 22-step gateway protocol smoke test — keyless, no API key needed
-pnpm typecheck      # tsc --noEmit on the root solution
+pnpm test           # node --test over src/**/*.test.ts (buildless, type-stripping)
+pnpm smoke          # 23-step gateway protocol smoke test — keyless, buildless
+pnpm typecheck      # tsc --noEmit (src + test + ui in one shot)
 pnpm lint           # eslint .          (pnpm format = eslint --fix .)
-pnpm gateway        # run the gateway bin from source (direct-drain mode)
-pnpm -F convariance-chat-example dev   # the chat example SPA on :5173
-pnpm changeset      # record a changeset for the next release
-pnpm release        # build + changeset publish (needs npm 2FA: --otp)
-pnpm publish:all    # manual fallback: pnpm publish -r --access public
+pnpm gateway        # run the agent from source (explicit serve mode)
+pnpm dev            # web UI dev server on :5173 (BRIDGE_EAGER=1 pnpm gateway alongside)
 ```
 
 Always run these from the **repo root**.
 
 ## Architecture
 
-Three packages, versioned in lockstep via changesets:
+One package (`convariance`, root package.json), three layers in `src/`:
 
-| Package | Path | Description |
-|---------|------|-------------|
-| `@convariance/core` | `packages/core` | Zero-dependency, isomorphic heart both sides share: the versioned wire protocol (`protocol.ts`), the `BridgeSession` transcript/signal/delegation state machine with a durable append-only event log (`session.ts`), the pluggable `Classifier` seam (`classifier.ts`), and the sub-speaker segmenter (`segmenter.ts`). |
-| `@convariance/gateway` | `packages/gateway` | One Node process with two faces sharing one in-memory `BridgeSession`: a **stdio MCP server** the agent connects to (registered in `.mcp.json`) and a **loopback HTTP face** for the browser (`POST /bridge/transcript` in, `GET /bridge/signals` SSE out). Built on `@silkweave/{core,fastify,mcp}`. The shipped bin (`bin.ts` / `convariance-gateway`) runs **direct-drain mode** (no API key: the agent parks on `WaitForTranscript`); import `startGateway` to plug in a `Classifier` (agent parks on `WaitForDelegation`) or serve a static UI bundle. |
-| `@convariance/client` | `packages/client` | Dependency-free browser SDK: push transcript segments in, it forwards each completed sentence (tail-idle backstop; AI-name partials forwarded immediately), drains signals over SSE with poll fallback, idempotent delivery, mode-aware read receipts, and surfaces typed events. `launchParams.ts` holds the pure launch-URL pairing helpers (parse/consume). |
+| Layer | Path | Description |
+|---|---|---|
+| core | `src/core/` | Zero-dependency, isomorphic heart: the versioned wire protocol (`protocol.ts`), the `BridgeSession` transcript/signal/delegation state machine with a durable append-only event log (`session.ts`), the pluggable `Classifier` seam (`classifier.ts`), the sub-speaker segmenter (`segmenter.ts`). |
+| client | `src/client/` | Dependency-free browser SDK: sentence forwarding with tail-idle backstop, SSE drain with poll fallback, idempotent delivery, mode-aware read receipts (`bridgeClient.ts`); pure launch-URL pairing helpers (`launchParams.ts`). |
+| agent | `src/agent/` | The Node gateway: one process, two faces sharing one in-memory `BridgeSession` — a stdio MCP server and a loopback HTTP face (`/bridge/*` routes + static UI serving). Built on `@silkweave/{core,fastify,mcp}`. |
 
-The protocol smoke test (`packages/gateway/test/smoke.ts`) drives the full
-gateway over real HTTP + MCP stdio with test fixtures: a stub classifier
-(`stubClassifier.ts`), a not-ready factory (`entry-notready.ts`, the hard-fail
-path), and the shipped drain-mode bin. It must pass keyless.
+Entry points:
 
-`examples/chat` (workspace package `convariance-chat-example`, private, never
-published) is a framework-free Vite SPA for live-chatting with Claude Code —
-the reference consumer of `@convariance/client`. It pairs by pasting the
-launch URL (`parseLaunchParams` + the URL's origin as `endpoint`) and relies
-on `BRIDGE_ALLOWED_ORIGINS` for cross-origin serving. Deployed to GitHub
-Pages by `.github/workflows/pages.yml` (Pages must be set to the "GitHub
-Actions" source in repo settings). It is deliberately named OUTSIDE the
-`@convariance/*` scope so the changesets `fixed` group doesn't catch it.
+- `src/index.ts` → the **`convariance`** export: core + client, zero-dep,
+  browser-safe (what convariance-cloud's frontend consumes).
+- `src/agent.ts` → the **`convariance/agent`** export: `startGateway`,
+  `createStaticHandler`, pairing runtime — Node-only (silkweave/zod deps).
+- `src/cli.ts` → the **`convariance` bin**, dual-mode: TTY → setup (registers
+  the MCP server via `claude mcp add`, falls back to `.mcp.json`); piped
+  (MCP client) → serve (drain-mode gateway + the packaged UI from `dist/ui`,
+  `BRIDGE_DIST` overrides). Explicit `serve`/`setup` subcommands exist.
+
+`ui/` is the packaged web UI (framework-free Vite SPA): typed chat + Web
+Speech API mic (`ui/src/speech.ts`), served same-origin by the gateway — the
+launch URL auto-pairs via `window.location.origin`. It imports `convariance`
+via a vite alias + tsconfig `paths` pinned to `src/index.ts` (never the
+package self-reference — that would hit stale dist).
+
+`test/` holds the protocol smoke (`smoke.ts`) and its fixtures: a stub
+classifier, a not-ready factory (the hard-fail path), a static-UI fixture
+(`fixtures/ui/`), and the shipped CLI spawned over pipes (which also proves
+the dual-mode TTY detection). It must pass keyless and buildless.
 
 ## Deep-dive docs
 
@@ -66,57 +73,54 @@ CLAUDE.md is the index; the details live in `docs/`:
 | Doc | Covers |
 |---|---|
 | [docs/protocol.md](docs/protocol.md) | the versioned wire protocol: v1→v6 history, drain vs classifier modes, the MCP tool surface, every `/bridge/*` route, auth/pairing (launch URL, token-in-fragment), cursors/idempotency, the turn lifecycle |
-| [docs/architecture.md](docs/architecture.md) | the gateway process model (two faces, lazy HTTP boot, port walking, teardown), all `BRIDGE_*` env vars, the tmpdir pairing runtime, `BridgeSession` internals, the classifier seam, the client's forwarding discipline, dev tools |
-| [docs/releasing.md](docs/releasing.md) | dev-source vs published-dist resolution (`publishConfig.exports`), build/turbo mechanics, the changesets release flow (OTP, tags, propagation), CI/Pages workflows, the cloud-consumer lockstep rule |
-
-## Package resolution (dev source vs. published build)
-
-Each package's `exports` points at **TS source** (`./src/index.ts`) so tests,
-the smoke, and Vite run buildless; `publishConfig.exports` flips consumers to
-compiled `dist`. The flip (and the `workspace:^` → semver rewrite) happens at
-`pnpm pack` / `pnpm publish` — full mechanics in
-[docs/releasing.md](docs/releasing.md).
+| [docs/architecture.md](docs/architecture.md) | the gateway process model (two faces, lazy HTTP boot, port walking, teardown), the dual-mode CLI, all `BRIDGE_*` env vars, the tmpdir pairing runtime, `BridgeSession` internals, the classifier seam, the client's forwarding discipline, dev tools |
+| [docs/releasing.md](docs/releasing.md) | build mechanics (tsdown + vite ordering), the release flow (`pnpm version` + CHANGELOG.md + `pnpm publish --otp`), CI, the old-package deprecation, the cloud-consumer migration map |
 
 ## Gotchas
 
-- **Publish with pnpm, NEVER `npm publish`**: `publishConfig.exports` (the
-  src→dist flip) is a pnpm feature and npm doesn't rewrite `workspace:^`
-  ranges in a pnpm workspace — the npm-published 0.1.0 tarballs were broken
-  for every consumer (entry pointed at `./src/index.ts`, not in the tarball).
-  A `prepublishOnly` guard in each package now hard-fails non-pnpm publishes.
-- `pnpm-workspace.yaml` pins `zod` to one version via `overrides` (the MCP SDK
+- **Build order**: the tsdown config has `clean: true` and wipes `dist/` —
+  vite must run second (`pnpm build` enforces this; never run
+  `vite build ui` alone after a clean).
+- `pnpm-workspace.yaml` is a **config-only** file (no `packages:` — this is
+  not a workspace): it pins `zod` to one version via `overrides` (the MCP SDK
   peers on zod 3; zod 3.25+ ships the v4 API at `zod/v4`), keeping a single
-  `@silkweave/core` instance in the graph.
+  `@silkweave/core` instance, and carries `allowBuilds`/release-age settings.
+- In serve mode the CLI (and everything under `src/agent/`) must never write
+  to stdout — it is reserved for MCP JSON-RPC; log via `makeLog` (stderr).
+- The UI's `convariance` import resolves through the vite alias/tsconfig
+  `paths` to `src/index.ts` — do not add `convariance` as a dependency of
+  anything, and keep the alias when touching `ui/vite.config.ts`.
 - The LICENSE is the verbatim Apache-2.0 text — never edit it.
 
 ## Code Style
 
-- ESM-only (`"type": "module"`), Node >= 20 (workspace tooling needs >= 22)
+- ESM-only (`"type": "module"`); consumers need Node >= 20, contributing
+  (buildless type-stripping) needs Node >= 22
 - No semicolons, single quotes, 2-space indent, no trailing commas
   (`@stylistic` rules in `eslint.config.mjs` enforce all of this)
 - Unused vars must be prefixed with `_`
 - `import type` for type-only imports (`consistent-type-imports` is an error)
-- Tests co-locate as `*.test.ts` in `src/` (excluded from the build by
-  `tsconfig.build.json`), written with `node:test` + `node:assert`
+- Tests co-locate as `*.test.ts` in `src/` (excluded from publish by the
+  tsdown entry graph), written with `node:test` + `node:assert`
 
 ## Wrapup Config
 
 - check: `pnpm check` — typecheck + lint, from the repo root
 - test: `pnpm test` **and** `pnpm smoke` — both must pass, keyless
 - push: yes
-- version_bump: via changesets, lockstep across all three packages
-  (`.changeset/config.json` has them in one `fixed` group)
-- publish: `pnpm release` (build + `changeset publish`; access `public` is set
-  in `.changeset/config.json`); npm auth required. `pnpm publish:all`
-  (`pnpm publish -r --access public`) is the manual fallback that bypasses
-  changesets — private packages (the example) are skipped automatically
-- docs: root README.md + per-package README.md + this CLAUDE.md as index +
-  deep-dives in `docs/*.md` (protocol, architecture, releasing) — keep the
-  relevant doc current when the protocol, gateway runtime, or release flow
-  changes
-- frontend_smoke: N/A
-- changelog: yes — changesets generates per-package CHANGELOG.md entries on
-  release; every user-visible change needs a changeset (`pnpm changeset`)
+- version_bump: `pnpm version minor|patch` (plain semver, git tag `vX.Y.Z`)
+- publish: `pnpm publish --otp=<code>` — `prepack` runs the full build;
+  after the FIRST publish, npm-deprecate `@convariance/{core,client,gateway}`
+  (see docs/releasing.md)
+- docs: README.md + this CLAUDE.md as index + deep-dives in `docs/*.md`
+  (protocol, architecture, releasing) — keep the relevant doc current when
+  the protocol, gateway runtime, CLI, or release flow changes
+- frontend_smoke: the packaged UI — `pnpm build`, then `pnpm gateway` and
+  load the launch URL (or rely on the smoke's static-UI step for the wiring)
+- changelog: yes — hand-maintained root CHANGELOG.md; describe every
+  user-visible change, call out wire-protocol impact explicitly
 - extra: this repo is consumed by the private Convariance Cloud repo
   (`tobiasstrebitzer/convariance-cloud`) — flag any breaking change to the
-  wire protocol or package APIs so the cloud side can be updated in lockstep
+  wire protocol or package API so the cloud side can be updated in lockstep
+  (import map: `@convariance/core`/`client` → `convariance`,
+  `@convariance/gateway` → `convariance/agent`)

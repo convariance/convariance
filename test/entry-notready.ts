@@ -3,6 +3,6 @@
 // whose front door can never react must not open, so GetSessionUrl must
 // hard-fail rather than open a dead round.
 
-import { startGateway } from '../src/gateway.ts'
+import { startGateway } from '../src/agent/gateway.ts'
 
 await startGateway({ classifier: () => null })
