@@ -80,6 +80,11 @@ Build mechanics worth knowing:
 
 ## Gotchas
 
+- **Publish with pnpm, NEVER `npm publish`**: `publishConfig.exports` (the
+  src→dist flip) is a pnpm feature and npm doesn't rewrite `workspace:^`
+  ranges in a pnpm workspace — the npm-published 0.1.0 tarballs were broken
+  for every consumer (entry pointed at `./src/index.ts`, not in the tarball).
+  A `prepublishOnly` guard in each package now hard-fails non-pnpm publishes.
 - `@silkweave/logger` declares `@clack/prompts` as an *optional* peer but
   imports it unconditionally — the gateway package carries it as a **real
   dependency** so consumer installs don't crash. Don't "clean it up".

@@ -1,6 +1,6 @@
 {
   "name": "@convariance/client",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The convariance browser SDK: feed transcript segments in, get typed AI contributions out as events. Sentence-level forwarding with a tail-idle backstop, SSE drain with poll fallback, idempotent delivery, mode-aware read receipts, and launch-URL pairing helpers.",
   "license": "Apache-2.0",
   "type": "module",
@@ -22,7 +22,8 @@
   "scripts": {
     "clean": "rimraf dist tsconfig.build.tsbuildinfo",
     "build": "tsc -b tsconfig.build.json",
-    "prepack": "pnpm run clean && pnpm run build"
+    "prepack": "pnpm run clean && pnpm run build",
+    "prepublishOnly": "node -e \"if (!/pnpm/.test(process.env.npm_config_user_agent || '')) throw new Error('publish with pnpm (pnpm publish:all) — npm publish does not apply publishConfig.exports or rewrite workspace:^ deps')\""
   },
   "dependencies": {
     "@convariance/core": "workspace:^"

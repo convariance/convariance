@@ -1,6 +1,6 @@
 {
   "name": "@convariance/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The convariance engine core: the versioned wire protocol, the BridgeSession transcript/signal/delegation state machine, the pluggable Classifier seam, and the sub-speaker segmenter. Zero dependencies, isomorphic (Node, workerd, browsers).",
   "license": "Apache-2.0",
   "type": "module",
@@ -22,7 +22,8 @@
   "scripts": {
     "clean": "rimraf dist tsconfig.build.tsbuildinfo",
     "build": "tsc -b tsconfig.build.json",
-    "prepack": "pnpm run clean && pnpm run build"
+    "prepack": "pnpm run clean && pnpm run build",
+    "prepublishOnly": "node -e \"if (!/pnpm/.test(process.env.npm_config_user_agent || '')) throw new Error('publish with pnpm (pnpm publish:all) — npm publish does not apply publishConfig.exports or rewrite workspace:^ deps')\""
   },
   "repository": {
     "type": "git",
