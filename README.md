@@ -127,6 +127,10 @@ pnpm build     # compile all packages to dist/
 No build step is needed for development — Node runs the TypeScript source
 directly (type stripping), and the workspace packages resolve to source.
 
+Deep-dives live in [`docs/`](docs): the [wire protocol](docs/protocol.md),
+the [gateway & client architecture](docs/architecture.md), and
+[building & releasing](docs/releasing.md).
+
 ## License
 
 [Apache-2.0](LICENSE). convariance is the open-source engine behind

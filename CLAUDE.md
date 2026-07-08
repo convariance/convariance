@@ -29,7 +29,8 @@ pnpm lint           # eslint .          (pnpm format = eslint --fix .)
 pnpm gateway        # run the gateway bin from source (direct-drain mode)
 pnpm -F convariance-chat-example dev   # the chat example SPA on :5173
 pnpm changeset      # record a changeset for the next release
-pnpm release        # build + changeset publish
+pnpm release        # build + changeset publish (needs npm 2FA: --otp)
+pnpm publish:all    # manual fallback: pnpm publish -r --access public
 ```
 
 Always run these from the **repo root**.
@@ -58,25 +59,23 @@ Pages by `.github/workflows/pages.yml` (Pages must be set to the "GitHub
 Actions" source in repo settings). It is deliberately named OUTSIDE the
 `@convariance/*` scope so the changesets `fixed` group doesn't catch it.
 
+## Deep-dive docs
+
+CLAUDE.md is the index; the details live in `docs/`:
+
+| Doc | Covers |
+|---|---|
+| [docs/protocol.md](docs/protocol.md) | the versioned wire protocol: v1→v6 history, drain vs classifier modes, the MCP tool surface, every `/bridge/*` route, auth/pairing (launch URL, token-in-fragment), cursors/idempotency, the turn lifecycle |
+| [docs/architecture.md](docs/architecture.md) | the gateway process model (two faces, lazy HTTP boot, port walking, teardown), all `BRIDGE_*` env vars, the tmpdir pairing runtime, `BridgeSession` internals, the classifier seam, the client's forwarding discipline, dev tools |
+| [docs/releasing.md](docs/releasing.md) | dev-source vs published-dist resolution (`publishConfig.exports`), build/turbo mechanics, the changesets release flow (OTP, tags, propagation), CI/Pages workflows, the cloud-consumer lockstep rule |
+
 ## Package resolution (dev source vs. published build)
 
-Each package's `exports` points at **TS source** (`./src/index.ts`) so tests
-and the smoke run buildless via Node's type-stripping; `publishConfig.exports`
-flips consumers to compiled `dist` (`types` + `default`). `pnpm pack` /
-publish is where the flip happens — `workspace:^` deps rewrite to real semver
-ranges at the same time.
-
-Build mechanics worth knowing:
-
-- Packages build with `tsc -b tsconfig.build.json` (composite project
-  references: gateway and client reference core). Turbo orders builds via
-  `dependsOn: ["^build"]` and caches `dist/**` + the tsbuildinfo.
-- `clean` must remove `tsconfig.build.tsbuildinfo` along with `dist` —
-  a stale tsbuildinfo makes `tsc -b` think it's up to date and skip re-emit.
-- `prepack` runs `clean` + `build` in each package, so any pack/publish ships
-  a fresh build.
-- Source imports use `.ts` extensions; `rewriteRelativeImportExtensions`
-  rewrites them to `.js` in `dist`.
+Each package's `exports` points at **TS source** (`./src/index.ts`) so tests,
+the smoke, and Vite run buildless; `publishConfig.exports` flips consumers to
+compiled `dist`. The flip (and the `workspace:^` → semver rewrite) happens at
+`pnpm pack` / `pnpm publish` — full mechanics in
+[docs/releasing.md](docs/releasing.md).
 
 ## Gotchas
 
@@ -111,7 +110,10 @@ Build mechanics worth knowing:
   in `.changeset/config.json`); npm auth required. `pnpm publish:all`
   (`pnpm publish -r --access public`) is the manual fallback that bypasses
   changesets — private packages (the example) are skipped automatically
-- docs: root README.md + per-package README.md + this CLAUDE.md
+- docs: root README.md + per-package README.md + this CLAUDE.md as index +
+  deep-dives in `docs/*.md` (protocol, architecture, releasing) — keep the
+  relevant doc current when the protocol, gateway runtime, or release flow
+  changes
 - frontend_smoke: N/A
 - changelog: yes — changesets generates per-package CHANGELOG.md entries on
   release; every user-visible change needs a changeset (`pnpm changeset`)
