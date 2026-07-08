@@ -1,15 +1,16 @@
 # Pin zod to one version: the MCP SDK (via @silkweave/mcp) peers on zod 3, and
 # zod 3.25+ ships the v4 API at `zod/v4` (which silkweave uses), so one version
 # satisfies everything and keeps a single @silkweave/core instance.
-#
-# NOTE: @silkweave/logger declares @clack/prompts as an OPTIONAL peer but
-# imports it unconditionally, so the gateway package carries it as a real
-# dependency — otherwise every consumer install crashes at import.
 packages:
   - packages/*
   - examples/*
 # esbuild's postinstall places the platform binary (vite dependency).
 allowBuilds:
   esbuild: true
+minimumReleaseAgeExclude:
+  - '@silkweave/auth@3.1.0'
+  - '@silkweave/core@3.1.0'
+  - '@silkweave/fastify@3.1.0'
+  - '@silkweave/mcp@3.1.0'
 overrides:
   zod: 3.25.76

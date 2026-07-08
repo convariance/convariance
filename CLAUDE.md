@@ -85,9 +85,6 @@ Build mechanics worth knowing:
   ranges in a pnpm workspace — the npm-published 0.1.0 tarballs were broken
   for every consumer (entry pointed at `./src/index.ts`, not in the tarball).
   A `prepublishOnly` guard in each package now hard-fails non-pnpm publishes.
-- `@silkweave/logger` declares `@clack/prompts` as an *optional* peer but
-  imports it unconditionally — the gateway package carries it as a **real
-  dependency** so consumer installs don't crash. Don't "clean it up".
 - `pnpm-workspace.yaml` pins `zod` to one version via `overrides` (the MCP SDK
   peers on zod 3; zod 3.25+ ships the v4 API at `zod/v4`), keeping a single
   `@silkweave/core` instance in the graph.

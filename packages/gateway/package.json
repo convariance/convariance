@@ -29,11 +29,10 @@
     "prepublishOnly": "node -e \"if (!/pnpm/.test(process.env.npm_config_user_agent || '')) throw new Error('publish with pnpm (pnpm publish:all) — npm publish does not apply publishConfig.exports or rewrite workspace:^ deps')\""
   },
   "dependencies": {
-    "@clack/prompts": "^1.6.0",
     "@convariance/core": "workspace:^",
-    "@silkweave/core": "^3.0.0",
-    "@silkweave/fastify": "^3.0.0",
-    "@silkweave/mcp": "^3.0.0",
+    "@silkweave/core": "^3.1.0",
+    "@silkweave/fastify": "^3.1.0",
+    "@silkweave/mcp": "^3.1.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
