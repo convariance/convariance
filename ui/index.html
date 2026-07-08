@@ -3,16 +3,59 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10141f" />
     <title>convariance chat — live-chat with Claude Code</title>
+    <link rel="icon" type="image/svg+xml" href="/logomark.svg" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <!-- Brand + icon geometry, referenced via <use>. The mark is the serif "C"
+         logomark (canonical copy: public/logomark.svg); the icons are lucide
+         (ISC), inlined so the page stays dependency-free. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <symbol id="mark" viewBox="0 0 1024 1024">
+          <path
+            transform="translate(-36.681,946.480) scale(0.068821,-0.068821)"
+            fill="currentColor"
+            d="M8280 12260 c-948 -46 -1678 -217 -2440 -570 -775 -360 -1467 -894 -2041 -1575 -444 -527 -832 -1233 -1068 -1942 -305 -916 -385 -1915 -240 -2973 120 -873 423 -1702 866 -2375 222 -337 396 -549 682 -835 574 -574 1173 -954 1963 -1249 642 -239 1340 -363 2128 -378 806 -16 1477 84 2150 320 527 184 989 433 1455 783 303 227 634 544 891 854 143 172 359 478 481 680 96 159 279 509 348 665 77 174 76 170 62 188 -7 9 -79 45 -161 81 -115 51 -152 64 -163 55 -7 -6 -59 -102 -116 -213 -105 -207 -243 -426 -404 -641 -285 -379 -709 -741 -1103 -942 -397 -203 -677 -288 -1160 -355 -146 -20 -613 -17 -770 5 -614 86 -1093 284 -1571 648 -607 463 -1099 1182 -1407 2059 -224 637 -362 1349 -429 2220 -21 283 -25 1091 -5 1365 55 774 159 1349 347 1920 80 242 164 438 283 660 251 468 573 799 955 980 238 113 410 154 682 162 365 11 601 -51 862 -226 221 -148 365 -332 489 -625 157 -371 176 -864 48 -1252 -46 -140 -129 -313 -196 -411 -29 -43 -102 -128 -162 -190 l-108 -112 48 -83 c143 -247 375 -506 610 -683 350 -264 782 -405 1233 -405 204 0 373 28 578 95 270 89 440 192 633 385 131 131 219 253 290 403 355 747 163 1645 -489 2298 -522 521 -1270 889 -2192 1079 -288 59 -588 97 -939 119 -230 15 -720 21 -920 11z"
+          />
+        </symbol>
+        <symbol id="i-mic" viewBox="0 0 24 24">
+          <path d="M12 19v3" />
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+          <rect x="9" y="2" width="6" height="13" rx="3" />
+        </symbol>
+        <symbol id="i-send" viewBox="0 0 24 24">
+          <path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z" />
+          <path d="M6 12h16" />
+        </symbol>
+        <symbol id="i-log-out" viewBox="0 0 24 24">
+          <path d="m16 17 5-5-5-5" />
+          <path d="M21 12H9" />
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        </symbol>
+        <symbol id="i-sparkles" viewBox="0 0 24 24">
+          <path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" />
+          <path d="M20 2v4" />
+          <path d="M22 4h-4" />
+          <circle cx="4" cy="20" r="2" />
+        </symbol>
+      </defs>
+    </svg>
+
     <main id="app">
       <section id="connect" class="card" hidden>
-        <h1>convariance</h1>
+        <span class="wordmark">
+          <svg width="24" height="24" style="color: var(--accent)" role="img" aria-label="convariance">
+            <use href="#mark" />
+          </svg>
+          <span class="name">convariance</span>
+        </span>
+        <h1>Talk with Claude Code</h1>
         <p class="tagline">
-          Talk with Claude Code — speak or type. The agent runs on
-          <em>your</em> machine; this page just talks to it.
+          Speak or type. The agent runs on <em>your</em> machine; this page just
+          talks to it.
         </p>
         <ol class="steps">
           <li>Run <code>npx convariance</code> in your project and start Claude Code.</li>
@@ -45,13 +88,26 @@
       <section id="chat" hidden>
         <header>
           <div class="who">
-            <h1 id="chat-title">Live session</h1>
-            <p id="presence">Claude Code · connecting…</p>
+            <svg width="20" height="20" style="color: var(--accent)" role="img" aria-label="convariance">
+              <use href="#mark" />
+            </svg>
+            <div>
+              <h1 id="chat-title">Live session</h1>
+              <p id="presence">
+                <svg class="lucide xs" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <use href="#i-sparkles" />
+                </svg>
+                <span id="presence-text">Claude Code · connecting…</span>
+              </p>
+            </div>
           </div>
           <div class="conn">
             <span id="status-dot" class="dot"></span>
             <span id="status-text">connecting</span>
-            <button id="leave" type="button" title="End the round and disconnect">
+            <button id="leave" type="button" class="outline" title="End the round and disconnect">
+              <svg class="lucide sm" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <use href="#i-log-out" />
+              </svg>
               Leave
             </button>
           </div>
@@ -64,10 +120,17 @@
             placeholder="Say something — mention “Claude” to address the AI directly"
             autocomplete="off"
           />
-          <button id="mic" type="button" title="Voice input (Web Speech API)" aria-pressed="false">
-            🎤
+          <button id="mic" type="button" class="outline" title="Voice input (Web Speech API)" aria-pressed="false">
+            <svg class="lucide" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use href="#i-mic" />
+            </svg>
           </button>
-          <button type="submit">Send</button>
+          <button type="submit">
+            <svg class="lucide sm" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <use href="#i-send" />
+            </svg>
+            Send
+          </button>
         </form>
       </section>
     </main>

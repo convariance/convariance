@@ -31,12 +31,50 @@ interface Pairing {
 
 const STORAGE_KEY = 'convariance-chat-pairing'
 
-const ICONS: Record<string, string> = {
-  candidate: '💡',
-  insight: '🔎',
-  caution: '⚠️',
-  present: '🗣️',
-  note: '📝'
+/** Constant lucide (ISC) icon markup — mirrors the cloud's aiTurnStyle.ts so a
+ *  kind's icon is the same in both UIs. Only ever assigned via innerHTML as
+ *  these fixed strings; user/agent text always goes through textContent. */
+function lucide(paths: string, cls = ''): string {
+  return (
+    `<svg class="lucide${cls ? ` ${cls}` : ''}" viewBox="0 0 24 24" fill="none" ` +
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+    `stroke-linejoin="round" aria-hidden="true">${paths}</svg>`
+  )
+}
+
+const ICON = {
+  lightbulb: lucide(
+    '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+    'sm'
+  ),
+  link2: lucide(
+    '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>',
+    'sm'
+  ),
+  triangleAlert: lucide(
+    '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    'sm'
+  ),
+  info: lucide(
+    '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    'sm'
+  ),
+  sparkles: lucide(
+    '<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/>',
+    'sm'
+  ),
+  check: lucide('<path d="M20 6 9 17l-5-5"/>', 'xs'),
+  checkCheck: lucide('<path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/>', 'xs'),
+  spinner: lucide('<path d="M21 12a9 9 0 1 1-6.219-8.56"/>', 'sm spin')
+}
+
+/** The typed signal kinds and their card identity (cloud KIND_STYLE). The
+ *  `present` kind (and anything unrecognised) renders as the AI bubble. */
+const KINDS: Record<string, { icon: string; label: string }> = {
+  candidate: { icon: ICON.lightbulb, label: 'Idea' },
+  insight: { icon: ICON.link2, label: 'Insight' },
+  caution: { icon: ICON.triangleAlert, label: 'Caution' },
+  note: { icon: ICON.info, label: 'Note' }
 }
 
 function $<T extends HTMLElement>(id: string): T {
@@ -50,7 +88,7 @@ const nameInput = $<HTMLInputElement>('display-name')
 const connectError = $('connect-error')
 const chatView = $('chat')
 const chatTitle = $('chat-title')
-const presenceEl = $('presence')
+const presenceEl = $('presence-text')
 const statusDot = $('status-dot')
 const statusText = $('status-text')
 const leaveBtn = $<HTMLButtonElement>('leave')
@@ -172,6 +210,25 @@ function startChat(pairing: Pairing, launchOpts: { autoRecord?: boolean } = {}):
     return messagesEl.querySelector(`[data-turn="${CSS.escape(id)}"]`)
   }
 
+  /** A pending body shows a spinner before its (italic) label; filling the
+   *  turn later just sets textContent, which drops the spinner with it. */
+  function setBody(body: HTMLElement, text: string, pending?: boolean): void {
+    body.textContent = ''
+    if (pending) {
+      const spin = document.createElement('span')
+      spin.innerHTML = ICON.spinner
+      body.append(spin, ' ')
+    }
+    body.append(text)
+  }
+
+  function detailEl(text: string): HTMLElement {
+    const detail = document.createElement('p')
+    detail.className = 'detail'
+    detail.textContent = `↳ ${text}`
+    return detail
+  }
+
   function addAiMessage(opts: {
     id: string
     type: string
@@ -179,26 +236,40 @@ function startChat(pairing: Pairing, launchOpts: { autoRecord?: boolean } = {}):
     detail?: string
     pending?: boolean
   }): void {
+    const kind = KINDS[opts.type]
     const row = document.createElement('div')
-    row.className = `msg ai${opts.pending ? ' pending' : ''}`
     row.dataset.turn = opts.id
-    const badge = document.createElement('span')
-    badge.className = 'badge'
-    badge.textContent = ICONS[opts.type] ?? '·'
-    badge.title = opts.type
-    const bubble = document.createElement('div')
-    bubble.className = 'bubble'
     const body = document.createElement('p')
     body.className = 'body'
-    body.textContent = opts.text
-    bubble.append(body)
-    if (opts.detail) {
-      const detail = document.createElement('p')
-      detail.className = 'detail'
-      detail.textContent = opts.detail
-      bubble.append(detail)
+    setBody(body, opts.text, opts.pending)
+    if (kind) {
+      // A typed signal card: icon + uppercase kind label, body, one-clause why.
+      row.className = `turn ${opts.type}${opts.pending ? ' pending' : ''}`
+      const label = document.createElement('div')
+      label.className = 'kind-label'
+      label.innerHTML = kind.icon
+      label.append(Object.assign(document.createElement('span'), { textContent: kind.label }))
+      row.append(label, body)
+      if (opts.detail) row.append(detailEl(opts.detail))
+    } else {
+      // `present` (and anything unrecognised): the AI's own voice — avatar +
+      // labeled accent bubble.
+      row.className = `msg ai${opts.pending ? ' pending' : ''}`
+      const avatar = document.createElement('span')
+      avatar.className = 'avatar'
+      avatar.innerHTML = ICON.sparkles
+      const col = document.createElement('div')
+      col.className = 'col'
+      const label = document.createElement('p')
+      label.className = 'ai-label'
+      label.textContent = 'AI participant'
+      const bubble = document.createElement('div')
+      bubble.className = 'bubble'
+      bubble.append(body)
+      if (opts.detail) bubble.append(detailEl(opts.detail))
+      col.append(label, bubble)
+      row.append(avatar, col)
     }
-    row.append(badge, bubble)
     messagesEl.append(row)
     scrollDown()
   }
@@ -214,13 +285,13 @@ function startChat(pairing: Pairing, launchOpts: { autoRecord?: boolean } = {}):
       })
     } else if (turn.action === 'update') {
       const row = aiRow(turn.id)
-      const body = row?.querySelector('.body')
-      if (body && turn.label) {
-        body.textContent = turn.label + (turn.queued ? ' (queued)' : '')
+      const body = row?.querySelector<HTMLElement>('.body')
+      if (row && body && turn.label) {
+        setBody(body, turn.label + (turn.queued ? ' (queued)' : ''), row.classList.contains('pending'))
       }
     } else if (turn.action === 'fill') {
       const row = aiRow(turn.id)
-      const body = row?.querySelector('.body')
+      const body = row?.querySelector<HTMLElement>('.body')
       if (row && body) {
         row.classList.remove('pending')
         body.textContent = turn.text
@@ -242,7 +313,7 @@ function startChat(pairing: Pairing, launchOpts: { autoRecord?: boolean } = {}):
     for (const [segId, state] of Object.entries(delivery)) {
       const tick = ticks.get(segId)
       if (!tick) continue
-      tick.textContent = state === 'heard' ? '✓✓' : '✓'
+      tick.innerHTML = state === 'heard' ? ICON.checkCheck : ICON.check
       tick.title = state === 'heard' ? 'heard by the agent' : 'received by the gateway'
       tick.classList.toggle('heard', state === 'heard')
     }

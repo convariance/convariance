@@ -1,30 +1,113 @@
+/*
+ * CDS-aligned stylesheet for the packaged web UI: the color tokens, fonts,
+ * radii, and component language mirror convariance-cloud's design system
+ * (app/src/styles/{tokens,fonts,theme}.css + the transcript components) so the
+ * OSS chat page and Convariance Cloud read as one product. Raw hex lives only
+ * in the token blocks below — components consume the semantic vars.
+ *
+ * Fonts are self-hosted (@fontsource, latin subset only — system fallbacks
+ * cover the rest): no CDN at runtime, matching the cloud's no-phone-home
+ * posture. Roles: Fraunces = display, Hanken Grotesk = body/UI, JetBrains
+ * Mono = code.
+ */
+@import '@fontsource/fraunces/latin-500.css';
+@import '@fontsource/hanken-grotesk/latin-400.css';
+@import '@fontsource/hanken-grotesk/latin-600.css';
+@import '@fontsource/hanken-grotesk/latin-700.css';
+@import '@fontsource/jetbrains-mono/latin-400.css';
+
 :root {
   color-scheme: light dark;
-  --bg: #f6f7f9;
-  --card: #ffffff;
-  --text: #17202a;
-  --muted: #61707f;
-  --line: #e2e7ec;
-  --accent: #4a5fc1;
-  --accent-text: #ffffff;
-  --ai-bubble: #eceff4;
-  --error: #b3362b;
-  --ok: #2e9e5b;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --font-display: 'Fraunces', 'Newsreader', 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-body: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+
+  /* CDS chunkier geometry + snappier motion. */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-2xl: 30px;
+  --motion-base: 160ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Light theme (cloud tokens.css `[data-theme='light']`). */
+  --bg: #f2f4fb;
+  --surface: #ffffff;
+  --border: #dfe4f1;
+  --text: #131727;
+  --text-muted: #5a6379;
+  --accent: #2f6bff;
+  --accent-tint: rgba(47, 107, 255, 0.1);
+  --accent-soft: rgba(47, 107, 255, 0.05);
+  --accent-border: rgba(47, 107, 255, 0.4);
+  --accent-solid: #2b5fef;
+  --accent-solid-fg: #ffffff;
+  --accent-solid-hover: #1f57e6;
+  --success: #10b981;
+  --danger: #f43f5e;
+  --ring: #2f6bff;
+  --shadow-sm: 0 1px 2px rgba(19, 23, 39, 0.06);
+  --shadow-md: 0 8px 24px rgba(19, 23, 39, 0.1);
+  --shadow-glow: 0 8px 24px rgba(47, 107, 255, 0.28);
+
+  /* Signal palette — the AI's per-kind card language (design-system §4). */
+  --signal-candidate: #2f6bff;
+  --signal-candidate-fg: #1c46b8;
+  --signal-candidate-bg: #eaf1ff;
+  --signal-candidate-border: #c8daff;
+  --signal-insight: #10b981;
+  --signal-insight-fg: #05754f;
+  --signal-insight-bg: #e5f8f1;
+  --signal-insight-border: #b0ecd6;
+  --signal-caution: #f5921b;
+  --signal-caution-fg: #9a5400;
+  --signal-caution-bg: #fff2e0;
+  --signal-caution-border: #ffd9a6;
+  --signal-note: #5a6379;
+  --signal-note-fg: #3d4557;
+  --signal-note-bg: #eef1f9;
+  --signal-note-border: #d6dcec;
 }
 
+/* Dark — the default CDS character (navy, never #000). */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #10141a;
-    --card: #171d26;
-    --text: #e8edf2;
-    --muted: #90a0b0;
-    --line: #29323e;
-    --accent: #6d83e8;
-    --accent-text: #0d1117;
-    --ai-bubble: #202836;
-    --error: #ff7a6e;
-    --ok: #4ecb84;
+    --bg: #10141f;
+    --surface: #1a2032;
+    --border: #29314a;
+    --text: #f2f5fd;
+    --text-muted: #8b93ab;
+    --accent: #5581ff;
+    --accent-tint: rgba(61, 109, 255, 0.18);
+    --accent-soft: rgba(61, 109, 255, 0.07);
+    --accent-border: rgba(85, 129, 255, 0.4);
+    --accent-solid: #3562f5;
+    --accent-solid-fg: #ffffff;
+    --accent-solid-hover: #2749d8;
+    --success: #29d17f;
+    --danger: #ff5a6a;
+    --ring: #5581ff;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.55);
+    --shadow-glow: 0 10px 30px rgba(61, 109, 255, 0.4);
+
+    --signal-candidate: #5581ff;
+    --signal-candidate-fg: #b9ccff;
+    --signal-candidate-bg: #172040;
+    --signal-candidate-border: #2c3d6e;
+    --signal-insight: #29d17f;
+    --signal-insight-fg: #9df3c6;
+    --signal-insight-bg: #10251c;
+    --signal-insight-border: #235039;
+    --signal-caution: #ff9f2e;
+    --signal-caution-fg: #ffd6a0;
+    --signal-caution-bg: #2a2012;
+    --signal-caution-border: #533b1c;
+    --signal-note: #8b93ab;
+    --signal-note-fg: #c3cadd;
+    --signal-note-bg: #191f30;
+    --signal-note-border: #303950;
   }
 }
 
@@ -36,10 +119,58 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Lucide icons render at 16px by default (cloud base rule); size classes win. */
+svg.lucide {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+svg.lucide.sm {
+  width: 14px;
+  height: 14px;
+}
+
+svg.lucide.xs {
+  width: 12px;
+  height: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+svg.lucide.spin {
+  animation: spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 #app {
-  max-width: 720px;
+  max-width: 768px; /* the cloud's reading-column cap */
   margin: 0 auto;
   min-height: 100dvh;
   display: flex;
@@ -47,32 +178,60 @@ body {
   padding: 16px;
 }
 
-/* --- connect card --- */
+/* --- wordmark ----------------------------------------------------------- */
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.wordmark svg {
+  flex-shrink: 0;
+}
+
+.wordmark .name {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: lowercase;
+}
+
+/* --- connect card ------------------------------------------------------- */
 
 .card {
   margin: auto;
   width: 100%;
   max-width: 520px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 28px;
+  box-shadow: var(--shadow-md);
+}
+
+.card .wordmark {
+  margin-bottom: 12px;
 }
 
 .card h1 {
   margin: 0 0 4px;
-  font-size: 22px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .tagline {
   margin: 0 0 16px;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .steps {
   margin: 0 0 20px;
   padding-left: 20px;
-  color: var(--muted);
+  color: var(--text-muted);
   font-size: 14px;
   line-height: 1.55;
 }
@@ -84,7 +243,8 @@ body {
 label {
   display: block;
   font-size: 13px;
-  color: var(--muted);
+  font-weight: 600;
+  color: var(--text-muted);
   margin-bottom: 12px;
 }
 
@@ -92,44 +252,66 @@ input {
   display: block;
   width: 100%;
   margin-top: 4px;
-  padding: 10px 12px;
+  padding: 9px 12px;
   font: inherit;
+  font-weight: 400;
   color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--motion-base) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard);
+}
+
+input::placeholder {
+  color: var(--text-muted);
 }
 
 input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px var(--accent-tint);
 }
 
 button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   font: inherit;
   font-weight: 600;
-  padding: 10px 18px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-text);
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--accent-solid);
+  color: var(--accent-solid-fg);
+  box-shadow: var(--shadow-glow);
   cursor: pointer;
+  transition: background var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard),
+    border-color var(--motion-base) var(--ease-standard);
 }
 
 button:hover {
-  filter: brightness(1.08);
+  background: var(--accent-solid-hover);
+}
+
+button:active {
+  transform: translateY(1px);
 }
 
 .error {
-  color: var(--error);
+  color: var(--danger);
   font-size: 14px;
 }
 
 code {
-  font-size: 0.92em;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
 }
 
-/* --- chat --- */
+/* --- chat --------------------------------------------------------------- */
 
 #chat {
   display: flex;
@@ -148,18 +330,39 @@ code {
   justify-content: space-between;
   gap: 12px;
   padding: 4px 4px 12px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 #chat header h1 {
   margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
   font-size: 18px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #presence {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   margin: 2px 0 0;
-  font-size: 13px;
-  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+#presence .lucide {
+  color: var(--accent);
 }
 
 .conn {
@@ -167,31 +370,39 @@ code {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
-.conn button {
+/* Outline button (cloud `variant="outline"`): quiet chrome actions. */
+button.outline {
   padding: 6px 12px;
   background: transparent;
-  border: 1px solid var(--line);
-  color: var(--muted);
+  border-color: var(--border);
+  color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+  font-size: 13px;
+}
+
+button.outline:hover {
+  background: var(--accent-tint);
+  color: var(--text);
 }
 
 .dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--muted);
+  background: var(--text-muted);
 }
 
 .dot.paired {
-  background: var(--ok);
+  background: var(--success);
 }
 
 .dot.offline,
 .dot.token-rejected,
 .dot.ended {
-  background: var(--error);
+  background: var(--danger);
 }
 
 #messages {
@@ -200,8 +411,10 @@ code {
   padding: 16px 4px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
+
+/* --- human messages (self): right-aligned accent bubbles ---------------- */
 
 .msg {
   display: flex;
@@ -212,89 +425,175 @@ code {
 
 .msg.user {
   align-self: flex-end;
-  flex-direction: row;
-}
-
-.msg.ai {
-  align-self: flex-start;
 }
 
 .bubble {
-  padding: 9px 13px;
-  border-radius: 14px;
-  line-height: 1.45;
+  padding: 8px 12px;
+  border-radius: var(--radius-2xl);
+  line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .msg.user .bubble {
-  background: var(--accent);
-  color: var(--accent-text);
-  border-bottom-right-radius: 4px;
+  background: var(--accent-solid);
+  color: var(--accent-solid-fg);
+  border-bottom-right-radius: var(--radius-sm);
 }
 
-.msg.ai .bubble {
-  background: var(--ai-bubble);
-  border-bottom-left-radius: 4px;
-}
-
-.bubble p {
-  margin: 0;
-}
-
-.bubble .detail {
-  margin-top: 6px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.msg.ai.pending .bubble {
-  color: var(--muted);
-  font-style: italic;
-}
-
-.msg.ai.pending .body::after {
-  content: '…';
-  animation: pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  50% {
-    opacity: 0.25;
-  }
-}
-
-.badge {
-  font-size: 15px;
-  line-height: 1;
-  padding-bottom: 6px;
-}
-
+/* WhatsApp-style delivery receipts: one grey tick = the gateway acked it,
+   two accent ticks = the agent actually drained it (cloud DeliveryTicks). */
 .tick {
-  font-size: 11px;
-  color: var(--muted);
-  min-width: 18px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  opacity: 0.6;
+  min-width: 14px;
+  padding-bottom: 4px;
 }
 
 .tick.heard {
-  color: var(--ok);
+  color: var(--accent);
+  opacity: 1;
+}
+
+/* The volatile interim transcript — display-only, never forwarded. */
+.msg.user.ghost .bubble {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* --- the AI participant: avatar + labeled bubble (cloud AiBubble) -------- */
+
+.msg.ai {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-top: 18px; /* sits beside the bubble, below the label row */
+  border-radius: 50%;
+  background: var(--accent-tint);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.msg.ai .col {
+  min-width: 0;
+}
+
+.ai-label {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.msg.ai .bubble {
+  border: 1px solid var(--accent-border);
+  background: var(--accent-soft);
+  border-top-left-radius: var(--radius-sm);
+  color: var(--text);
+}
+
+.bubble .body,
+.turn .body {
+  margin: 0;
+}
+
+.detail {
+  margin: 4px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+/* --- typed signal cards (cloud SignalCard): icon + label, body, "why" ---- */
+
+.turn {
+  align-self: stretch;
+  border: 1px solid var(--kind-border);
+  border-left: 3px solid var(--kind);
+  background: var(--kind-bg);
+  border-radius: var(--radius-lg);
+  padding: 8px 12px;
+}
+
+.turn.candidate {
+  --kind: var(--signal-candidate);
+  --kind-fg: var(--signal-candidate-fg);
+  --kind-bg: var(--signal-candidate-bg);
+  --kind-border: var(--signal-candidate-border);
+}
+
+.turn.insight {
+  --kind: var(--signal-insight);
+  --kind-fg: var(--signal-insight-fg);
+  --kind-bg: var(--signal-insight-bg);
+  --kind-border: var(--signal-insight-border);
+}
+
+.turn.caution {
+  --kind: var(--signal-caution);
+  --kind-fg: var(--signal-caution-fg);
+  --kind-bg: var(--signal-caution-bg);
+  --kind-border: var(--signal-caution-border);
+}
+
+.turn.note {
+  --kind: var(--signal-note);
+  --kind-fg: var(--signal-note-fg);
+  --kind-bg: var(--signal-note-bg);
+  --kind-border: var(--signal-note-border);
+}
+
+.kind-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--kind-fg);
+}
+
+.turn .body {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* --- pending contributions ----------------------------------------------- */
+
+.pending .body {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 #banner {
   margin: 0 0 8px;
   padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   font-size: 13px;
-  color: var(--muted);
-  background: var(--card);
+  color: var(--text-muted);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
 #composer {
   display: flex;
   gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 
 #composer input {
@@ -302,12 +601,19 @@ code {
   margin: 0;
 }
 
-/* --- mic --- */
+/* --- mic ------------------------------------------------------------------ */
 
 #mic {
   background: transparent;
-  border: 1px solid var(--line);
-  padding: 10px 12px;
+  border-color: var(--border);
+  color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+  padding: 9px 11px;
+}
+
+#mic:hover:not(:disabled) {
+  background: var(--accent-tint);
+  color: var(--accent);
 }
 
 #mic:disabled {
@@ -315,15 +621,17 @@ code {
   cursor: not-allowed;
 }
 
-#mic.listening {
-  border-color: var(--error);
-  animation: pulse 1.2s ease-in-out infinite;
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
 }
 
-/* the volatile interim transcript — display-only, never forwarded */
-.msg.user.ghost .bubble {
-  background: transparent;
-  border: 1px dashed var(--line);
-  color: var(--muted);
-  font-style: italic;
+#mic.listening {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+#mic.listening .lucide {
+  animation: pulse 1.2s ease-in-out infinite;
 }

@@ -18,6 +18,15 @@ protocol v6.
   custom bundle; `BRIDGE_ALLOWED_ORIGINS` still admits external hosts).
 - **Mic transcription** in the bundled UI via the Web Speech API
   (Chrome/Edge) — speak or type, no external STT service, no API keys.
+- **The bundled UI speaks the Convariance design system**: the cloud's color
+  tokens (navy dark-first canvas, electric-blue accent, per-kind signal
+  palette), self-hosted brand fonts (Fraunces display, Hanken Grotesk body,
+  JetBrains Mono code — latin subsets, no CDN), the serif-C logomark as
+  wordmark + favicon, and inlined lucide icons replacing the emoji badges.
+  The agent's typed contributions now render as the same left-striped signal
+  cards (Idea/Insight/Caution/Note) as Convariance Cloud, with `present`
+  turns as the sparkles-avatar AI bubble and lucide tick delivery receipts.
+  No wire-protocol change.
 - **New import surface**: `convariance` (core + browser client, zero-dep,
   isomorphic) and `convariance/agent` (`startGateway`, static handler,
   pairing runtime — Node). Migration: `@convariance/core` and
