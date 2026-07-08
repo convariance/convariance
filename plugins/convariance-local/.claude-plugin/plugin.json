@@ -1,0 +1,16 @@
+{
+  "name": "convariance-local",
+  "description": "Local convariance agent — the open-source, keyless setup: one Node process serving the bundled web UI (Web Speech API transcription) and the stdio MCP bridge. No account, no API keys.",
+  "version": "0.1.0",
+  "author": { "name": "Convariance" },
+  "homepage": "https://github.com/convariance/convariance",
+  "repository": "https://github.com/convariance/convariance",
+  "license": "Apache-2.0",
+  "keywords": ["brainstorm", "transcription", "mcp", "voice", "local"],
+  "mcpServers": {
+    "convariance": {
+      "command": "npx",
+      "args": ["-y", "convariance"]
+    }
+  }
+}

@@ -30,6 +30,19 @@ the bundled chat UI in your browser, already paired. Speak (Chrome/Edge, via
 the Web Speech API — no external STT service) or type; Claude's contributions
 stream back inline while you talk. No API keys needed.
 
+## Claude Code plugin
+
+This repo doubles as a plugin marketplace:
+
+```
+/plugin marketplace add convariance/convariance
+/plugin install convariance@convariance          # hosted (Convariance Cloud, OAuth sign-in)
+/plugin install convariance-local@convariance    # local, keyless (npx convariance)
+```
+
+Works in the Claude Code CLI and in Claude Desktop's Claude Code tab. Install
+one or the other — both register the MCP server under the name `convariance`.
+
 ## How it works
 
 One npm package, three layers:
