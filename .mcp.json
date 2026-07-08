@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "convariance": {
+      "command": "node",
+      "args": ["src/cli.ts", "serve"]
+    }
+  }
+}
