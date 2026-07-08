@@ -21,7 +21,8 @@
     "check": "pnpm run typecheck && pnpm run lint",
     "gateway": "node packages/gateway/src/bin.ts",
     "changeset": "changeset",
-    "release": "pnpm run build && changeset publish"
+    "release": "pnpm run build && changeset publish",
+    "publish:all": "pnpm publish -r --access public"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",

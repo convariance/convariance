@@ -106,7 +106,9 @@ Build mechanics worth knowing:
 - version_bump: via changesets, lockstep across all three packages
   (`.changeset/config.json` has them in one `fixed` group)
 - publish: `pnpm release` (build + `changeset publish`; access `public` is set
-  in `.changeset/config.json`); npm auth required
+  in `.changeset/config.json`); npm auth required. `pnpm publish:all`
+  (`pnpm publish -r --access public`) is the manual fallback that bypasses
+  changesets — private packages (the example) are skipped automatically
 - docs: root README.md + per-package README.md + this CLAUDE.md
 - frontend_smoke: N/A
 - changelog: yes — changesets generates per-package CHANGELOG.md entries on
