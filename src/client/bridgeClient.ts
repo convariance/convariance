@@ -5,7 +5,8 @@
 // it learns flows OUT as typed events the host adapts to its own state
 // (store writes, audio cues, a debug panel — whatever the app owns).
 //
-//   transcript out → POST /bridge/transcript (sentence-level stable finals)
+//   transcript out → POST /bridge/transcript (COMPLETED cards only — a card
+//                    forwards once it settles or sits idle, as sentence lines)
 //   signals in     ← SSE /bridge/signals (preferred) or GET poll (fallback),
 //                    resumed by `idx` so a dropped link loses nothing (F6).
 //
@@ -26,7 +27,7 @@ import type { BridgeMode, Signal, SignalType, TranscriptInput } from '../core/in
 
 /** One transcript segment as the client sees it: the host resolves the display
  *  speaker before pushing (contact names etc. are its concern). A segment's
- *  text must be APPEND-ONLY once final — that is what makes sentence-level
+ *  text must be APPEND-ONLY once final — that is what makes cursor-based
  *  forwarding safe. */
 export interface BridgeSegment {
   id: string
@@ -173,11 +174,12 @@ const POLL_MS = 1500
 // drain) cursor so transcript bubbles can show a "heard" tick, and notice if the
 // round ended out from under us. Loopback, so cheap; only runs while active.
 const HEALTH_MS = 700
-// How long an open segment's trailing INCOMPLETE sentence must sit unchanged
-// before we forward it anyway (the speaker paused mid-thought). MUST be >= the
-// segmenter's pauseMs (3000) so a resumed utterance starts a NEW segment rather
-// than extending this one — otherwise we'd double-send the continuation. Only a
-// trailing partial waits this long; completed sentences go out on the next tick.
+// How long the OPEN card's un-forwarded text must sit unchanged before it is
+// treated as complete and forwarded (the speaker stopped; a new card — the
+// other close signal — may never come if they're done). This is the client's
+// card-completion detector, so it MUST be >= the segmenter's pauseMs (3000):
+// a resumed utterance then starts a NEW segment rather than extending the one
+// we already forwarded — otherwise we'd double-send the continuation.
 const TAIL_IDLE_MS = 3200
 
 // A sentence boundary at the tail of a clause: terminal punctuation, allowing
@@ -217,9 +219,11 @@ export function createBridgeClient(opts: BridgeClientOptions): BridgeClient {
   const triggerName = (opts.triggerName || 'Claude').trim() || 'Claude'
   const authHeaders = { 'content-type': 'application/json', 'x-bridge-token': token }
   // A loose, word-boundary match on the room's name for the AI. Deliberately
-  // permissive: a hit only makes us forward the line SOONER (it skips the idle
-  // backstop) — the agent still decides address-vs-mention in context, so a false
-  // positive costs nothing but a slightly earlier flush.
+  // permissive: a hit only makes a COMPLETED card's batch flush immediately
+  // instead of on the next FLUSH_MS tick — the agent still decides
+  // address-vs-mention in context, so a false positive costs nothing but a
+  // slightly earlier flush. (It no longer releases an open card early — that
+  // eager path made the AI answer unfinished thoughts.)
   const triggerPattern = new RegExp(`\\b${escapeRegExp(triggerName)}\\b`, 'i')
   function mentionsTrigger(text: string): boolean {
     return triggerPattern.test(text)
@@ -275,11 +279,11 @@ export function createBridgeClient(opts: BridgeClientOptions): BridgeClient {
   let tailIdleMs = opts.params?.tailIdleMs || TAIL_IDLE_MS
 
   // --- transcript out -------------------------------------------------------
-  // Decoupled from the UI's coarse segments: the agent is fed at SENTENCE
-  // granularity the moment each sentence completes, while the on-screen bubbles
-  // stay long and readable. Safe because a final segment's text is append-only
-  // (the segmenter only extends the open segment by appending), so once we've
-  // forwarded the first N chars they never change.
+  // The agent is fed at CARD granularity: a segment forwards only once it is
+  // complete (settled under a newer one, or idle past tailIdleMs), as
+  // sentence-level lines batched together. Safe because a final segment's text
+  // is append-only (the segmenter only extends the open segment by appending),
+  // so once we've forwarded the first N chars they never change.
   let segments: BridgeSegment[] = opts.restored ?? []
   // segment id → chars of that UI segment already forwarded to the gateway.
   const forwarded = new Map<string, number>()
@@ -317,10 +321,18 @@ export function createBridgeClient(opts: BridgeClientOptions): BridgeClient {
     })
   }
 
-  // Forward newly-stable text from every segment. A settled segment (one a newer
-  // segment follows) is fully stable; the open last segment yields its completed
-  // sentences and holds its trailing partial — unless `flushTail`, the idle
-  // backstop, releases that too.
+  // Forward COMPLETED cards only. A settled segment (one a newer segment
+  // follows) is complete and forwards in full; the OPEN last segment is held
+  // entirely — nothing goes out while the speaker may still be extending it —
+  // until `flushTail`, the idle backstop, says they stopped (the same pause
+  // the segmenter itself uses to close a card). Forwarded text is still split
+  // into sentence-level lines (the gateway's ref/echo-guard unit), they just
+  // travel together once the card is done.
+  //
+  // This replaced eager sentence-level forwarding (each sentence the moment it
+  // closed, plus an open tail that named the AI released immediately): feeding
+  // the classifier a thought in fragments made the AI answer before the
+  // speaker finished — one speech card could draw several interruptions.
   // Returns true if it forwarded a line that names the AI (a likely direct
   // address), so the caller can flush immediately instead of waiting for the
   // FLUSH_MS tick — the room then gets its loading-card ack as fast as possible.
@@ -335,26 +347,18 @@ export function createBridgeClient(opts: BridgeClientOptions): BridgeClient {
       const remaining = seg.text.slice(already)
       if (!remaining) continue
       const settled = i !== lastIdx
-      const { sentences, rest, consumed } = splitSentences(remaining)
+      if (!settled && !flushTail) continue // the open card: hold until complete
+      const { sentences, rest } = splitSentences(remaining)
       for (const s of sentences) {
         enqueueLine(seg, s)
         if (mentionsTrigger(s)) addressed = true
       }
-      let used = consumed
       const tail = rest.trim()
-      // Force out a trailing partial when the segment settled, the idle backstop
-      // fired, OR the partial names the AI. An address often lands unpunctuated on
-      // the open tail; holding it for TAIL_IDLE_MS read in-room as the AI being
-      // slow to react ("stuck while someone speaks"). Releasing it on the name
-      // gets the words to the agent ~3 s sooner; the agent still judges whether
-      // it's a real address. Accepts the odd fragmented line as the cost.
-      const named = tail !== '' && mentionsTrigger(tail)
-      if (tail && (settled || flushTail || named)) {
+      if (tail) {
         enqueueLine(seg, tail)
-        used = remaining.length
-        if (named) addressed = true
+        if (mentionsTrigger(tail)) addressed = true
       }
-      forwarded.set(seg.id, already + used)
+      forwarded.set(seg.id, already + remaining.length)
     }
     return addressed
   }
@@ -489,9 +493,9 @@ export function createBridgeClient(opts: BridgeClientOptions): BridgeClient {
     }
   }
 
-  // Track the open last segment's un-forwarded tail so the idle backstop can
-  // release a trailing partial sentence once the speaker stops (the next thing
-  // we'd otherwise wait on — a new segment — never comes if they're done).
+  // Track the open last card's un-forwarded text so the idle backstop can
+  // declare it complete once the speaker stops (the other completion signal —
+  // a new segment starting — never comes if they're done).
   let tailSig = ''
   let tailSince = 0
   function trackTail(): void {
@@ -514,13 +518,12 @@ export function createBridgeClient(opts: BridgeClientOptions): BridgeClient {
   function startFlushTimer(): void {
     if (flushTimer) clearInterval(flushTimer)
     flushTimer = setInterval(() => {
-      // Idle backstop: an un-forwarded trailing partial that hasn't changed for
-      // tailIdleMs means the speaker stopped — forward it so their final words
-      // aren't stranded on the tail.
+      // Idle backstop: the open card's text hasn't changed for tailIdleMs —
+      // the speaker stopped, the card is complete, forward it.
       const last = segments[segments.length - 1]
       const hasTail = last ? (forwarded.get(last.id) ?? 0) < last.text.length : false
       if (hasTail && Date.now() - tailSince >= tailIdleMs) {
-        emitDebug('tail', 'idle backstop → flush trailing partial')
+        emitDebug('tail', 'idle backstop → open card complete, forwarding')
         harvest(true)
       }
       void flush()

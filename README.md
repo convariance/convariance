@@ -11,7 +11,7 @@ transport/sequencing core, open for you to build on.
 
 ```
  mic / typing ──▶ web UI (bundled) ──▶ convariance agent ──▶ Claude Code
- Web Speech API     sentence forwarding    one Node process      parks on a
+ Web Speech API     card-complete forward  one Node process      parks on a
  in your browser    SSE drain, receipts    stdio MCP + HTTP      blocking wait,
                           ▲                     │                zero tokens
                           └── typed signals ◀───┘                while idle
@@ -55,10 +55,11 @@ One npm package, three layers:
   zero token cost until there is something to hear.
 - **The client** (`createBridgeClient` from `convariance`) is a
   dependency-free browser SDK: push transcript segments in, and it forwards
-  each completed **sentence** the moment it closes (a tail-idle backstop
-  catches the speaker's last words; a partial that names the AI is forwarded
-  immediately). Signals drain back over SSE with a poll fallback,
-  idempotently, and surface as typed events — your app owns rendering.
+  each speech card once it **completes** (a newer card starts, or the text
+  sits idle past the segmenter's pause) — so the agent reacts to finished
+  thoughts, never fragments of one. Signals drain back over SSE with a poll
+  fallback, idempotently, and surface as typed events — your app owns
+  rendering.
 - **The core** (also `convariance`) is the zero-dependency heart both sides
   share: the versioned wire protocol, the `BridgeSession` state machine
   (transcript/signal/delegation queues, a durable append-only event log), the

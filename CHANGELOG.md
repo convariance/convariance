@@ -1,5 +1,16 @@
 # convariance
 
+## 0.2.1
+
+- **Card-complete forwarding** (`createBridgeClient`): a speech card now
+  forwards only once it is COMPLETE — settled under a newer card, or idle past
+  `tailIdleMs` — instead of sentence-by-sentence as it grew (with a partial
+  naming the AI released even earlier). Eager forwarding fed the classifier
+  unfinished thoughts: one spoken request could draw several interruptions
+  ("All right. Claude." → an answer, before the actual ask landed). The agent
+  now hears finished cards only. No wire-protocol change (still v6); the
+  `params` cadence knobs are unchanged.
+
 ## 0.2.0
 
 **One package.** The `@convariance/core`, `@convariance/client`, and

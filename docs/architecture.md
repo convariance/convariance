@@ -88,13 +88,16 @@ The shared state machine (`src/core/session.ts`):
 `createBridgeClient` (`src/client/bridgeClient.ts`) owns the wire
 discipline, and nothing else — the host app owns rendering/persistence:
 
-- **Sentence-level forwarding**: pushed segments are split at sentence
-  boundaries; completed sentences go out on the next flush (default 600 ms), a
-  trailing incomplete sentence waits `tailIdleMs` (default 3200 — deliberately
-  ≥ the segmenter's 3000 ms pause so a resumed utterance starts a NEW segment
-  rather than double-sending). A line mentioning the trigger name (default
-  "Claude") forwards immediately. Typed-chat hosts (complete messages) can
-  drop these way down via `params`.
+- **Card-complete forwarding**: a pushed segment forwards only once it is
+  COMPLETE — settled under a newer segment, or unchanged for `tailIdleMs`
+  (default 3200 — deliberately ≥ the segmenter's 3000 ms pause so a resumed
+  utterance starts a NEW segment rather than double-sending). It then goes
+  out whole, split into sentence-level lines. The open card is held entirely:
+  eager sentence-by-sentence forwarding (and an even-eager release of a
+  partial naming the trigger) made the AI answer a thought before the speaker
+  finished it. A completed card mentioning the trigger name (default
+  "Claude") skips the flush tick and posts immediately. Typed-chat hosts
+  (complete messages) can drop these params way down via `params`.
 - **Lifecycle**: `activate()` (idempotent; syncs the session id, drains,
   forwards) / `setForwarding(on)` (pause without ending the round) /
   `dispose()` (POST `/bridge/end` + teardown).

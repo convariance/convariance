@@ -112,36 +112,52 @@ function makeClient(extra: Partial<Parameters<typeof createBridgeClient>[0]> = {
   client = createBridgeClient({
     endpoint: BASE,
     token: 'test-token',
-    params: { flushMs: 25 },
+    // Small tailIdleMs so an open card completes fast under test — cards only
+    // forward once complete (settled or idle), never while still growing.
+    params: { flushMs: 25, tailIdleMs: 40 },
     ...extra
   })
   return client
 }
 
-test('forwards completed sentences and holds the trailing partial', async () => {
-  const c = makeClient()
+test('holds the open card, then forwards it whole once a new card settles it', async () => {
+  const c = makeClient({ params: { flushMs: 25, tailIdleMs: 5_000 } }) // no idle help
   c.activate()
   c.pushSegments([
     { id: 'seg_1', speaker: 'Ada', text: 'Hello there. And then we' }
   ])
   await sleep(120) // a few flush ticks
-  const speech = postedLines.filter((l) => l.kind !== 'control')
-  assert.equal(speech.length, 1)
-  assert.equal(speech[0]?.text, 'Hello there.')
-  assert.equal(speech[0]?.speaker, 'Ada')
-  // The session-config control line went out too (trigger marker included).
+  // Nothing leaks while the card is still open — not even its closed sentences
+  // (eager sentence forwarding made the AI answer unfinished thoughts).
+  assert.equal(postedLines.filter((l) => l.kind !== 'control').length, 0)
+  // The session-config control line went out though (trigger marker included).
   const control = postedLines.find((l) => l.kind === 'control')
   assert.ok(control?.text.includes('[trigger: Claude]'))
+
+  // A newer card settles seg_1 → it forwards in full, as sentence-level lines.
+  c.pushSegments([
+    { id: 'seg_1', speaker: 'Ada', text: 'Hello there. And then we left.' },
+    { id: 'seg_2', speaker: 'Ada', text: 'New thought' }
+  ])
+  await sleep(120)
+  const speech = postedLines.filter((l) => l.kind !== 'control')
+  assert.equal(speech.length, 2)
+  assert.equal(speech[0]?.text, 'Hello there.')
+  assert.equal(speech[0]?.speaker, 'Ada')
+  assert.equal(speech[1]?.text, 'And then we left.')
 })
 
-test('a line naming the AI flushes immediately, including the open tail', async () => {
-  const c = makeClient({ params: { flushMs: 5_000 } }) // no timer help
+test('naming the AI does not release an open card — the idle backstop does', async () => {
+  const c = makeClient({ params: { flushMs: 25, tailIdleMs: 60 } })
   c.activate()
   await sleep(50) // let activate settle (adopt → prime → config)
   c.pushSegments([
     { id: 'seg_1', speaker: 'Ada', text: 'Claude, what do you think' }
   ])
-  await sleep(50) // the eager flush, not the 5 s timer
+  // Still held: the speaker may not be done (this exact eager path used to
+  // interrupt mid-request).
+  assert.equal(postedLines.filter((l) => l.kind !== 'control').length, 0)
+  await sleep(200) // idle past tailIdleMs → the card is complete
   const speech = postedLines.filter((l) => l.kind !== 'control')
   assert.equal(speech.length, 1)
   assert.equal(speech[0]?.text, 'Claude, what do you think')

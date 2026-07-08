@@ -1,6 +1,6 @@
 {
   "name": "convariance",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Put Claude Code (or any MCP agent) in your live conversation — transcript in, typed inline contributions out. `npx convariance` sets up the MCP server; the agent ships its own web UI with mic transcription.",
   "license": "Apache-2.0",
   "type": "module",
