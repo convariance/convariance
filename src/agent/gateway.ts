@@ -277,6 +277,9 @@ export async function startGateway(opts: GatewayOptions = {}): Promise<void> {
       .set(CTX_KEYS.ENSURE, ensureHttpFace)
       .set(CTX_KEYS.TOKEN, token)
       .set(CTX_KEYS.OPEN, openBrowser)
+      // ConfigureReflex (v7) patches the same live classifier params the
+      // browser face's /bridge/config does.
+      .set(CTX_KEYS.CONFIG, reflexConfig)
       .set(CTX_KEYS.MODE, mode)
       .set(CTX_KEYS.SESSION_PATH, opts.sessionPath ?? '/app/session')
       .adapter(stdio())
