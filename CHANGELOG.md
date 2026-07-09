@@ -1,5 +1,34 @@
 # convariance
 
+## 0.3.0
+
+**Protocol v7 — comms** (Convariance Cloud PRD 019): ambient awareness for the
+agent, a typed side channel for the room, and a steerable classifier. All
+additive — a v6 browser client keeps working against a v7 gateway.
+
+- **The digest**: every `wait_for_delegation` return (delegation, idle, or
+  message) may carry `digest` — the durable-log events since the agent's last
+  wake, the classifier's verdicts since then (including silent ones and an
+  optional `agent_note` whisper), and the effective reflex params when they
+  changed. The agent is no longer structurally mute when the classifier stays
+  silent: it reviews the digest each heartbeat wake and MAY engage.
+  `BridgeSession.recordVerdict()` is the classifier-agnostic feed; the digest
+  is capped (`truncated` flags a larger gap — use `sync_transcript`).
+- **The typed side channel**: `POST /bridge/message` queues a typed ask
+  straight to the agent — it wakes a parked wait immediately (both
+  `wait_for_delegation` and drain-mode `wait_for_transcript`) and rides the
+  return as `messages`. Logged as a new `chat` event kind in the
+  transcript-of-record; `BridgeSession.onChat()` is the persistence hook.
+  Client: `sendMessage()` + the `chat` event.
+- **Steerable classifier**: `ReflexParams` gains `directive` (a bounded
+  steering paragraph appended to the classifier's prompt) and `sensitivity`
+  (`quiet | balanced | eager`). A new agent tool **`ConfigureReflex`**
+  patches them at runtime (deliberately no `model` field); the browser's
+  `POST /bridge/config` accepts them too. Either principal's change bumps
+  `params_rev` on status/health and ships the effective config in the
+  agent's next digest — so UI edits reach the agent and agent edits reach
+  the UI (client: `getConfig()`/`setConfig()` + the `config` event).
+
 ## 0.2.1
 
 - **Card-complete forwarding** (`createBridgeClient`): a speech card now

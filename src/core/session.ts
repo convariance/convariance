@@ -18,7 +18,11 @@ import type {
   DebugEvent,
   DebugEventKind,
   Delegation,
-  WaitDelegationResult
+  WaitDelegationResult,
+  AgentMessage,
+  Digest,
+  VerdictSummary,
+  ReflexParams
 } from './protocol.ts'
 import { PROTOCOL_VERSION } from './protocol.ts'
 import { ECHO_THRESHOLD, jaccard, tokenize } from './textSim.ts'
@@ -109,6 +113,30 @@ export class BridgeSession {
   // supersede them.
   private delegations: QueuedDelegation[] = []
   private activeId: string | null = null
+  // The typed side channel (v7 — PRD 019): messages from the room's UI, queued
+  // for the agent and delivered on the next wait return — waking a parked
+  // waiter immediately (a deliberate ask never waits for the classifier or the
+  // next heartbeat). Drained whole per wake.
+  private messages: AgentMessage[] = []
+  private messageSeq = 0
+  // Chat persistence hook: a host (e.g. a durable session store) subscribes to
+  // persist each `chat` event the moment it lands — the counterpart of the
+  // onTranscript/onSignal hooks it already writes from.
+  private readonly chatListeners = new Set<(event: EventLine) => void>()
+  // Ambient awareness (v7): how far into the event log the agent's digest has
+  // reached, plus the classifier verdicts recorded since its last wake. The
+  // digest rides every wait return and is consumed exactly once per wake.
+  private digestCursor = 0
+  private verdicts: VerdictSummary[] = []
+  private static readonly VERDICTS_MAX = 40
+  private static readonly DIGEST_EVENTS_MAX = 60
+  // Reflex-params change tracking (v7): the session doesn't own the params (the
+  // classifier does) but it carries change NOTICE — a copy of the effective
+  // params marked dirty on every change, shipped in the next digest, plus a
+  // monotonic revision the browser client watches on the health poll.
+  private lastParams: ReflexParams | null = null
+  private paramsDirty = false
+  private paramsRev = 0
   // Sliding window of recently-completed delegation token sets — the persistent
   // "already processed, don't touch again" guard. Bounded (not permanent) so a
   // topic the room genuinely revisits much later can be delegated again.
@@ -173,6 +201,14 @@ export class BridgeSession {
     this.activeId = null
     this.recentDoneTokens = []
     this.delegateSeq = 0
+    this.messages = []
+    this.messageSeq = 0
+    this.digestCursor = 0
+    this.verdicts = []
+    // Reflex params SURVIVE a reset (they live on the classifier instance), but
+    // re-mark them dirty so the new round's first digest tells the agent the
+    // effective config it is running under.
+    this.paramsDirty = this.lastParams !== null
     this.agentSeenAt = 0
     this.ended = false
     while (this.waiters.length) {
@@ -284,6 +320,112 @@ export class BridgeSession {
     this.classifiedCursor = next
   }
 
+  // --- the typed side channel + ambient awareness (v7 — PRD 019) ------------
+
+  /** A typed message from the room's UI, straight to the agent (bypassing the
+   *  classifier — a typed ask is always deliberate). Appends a `chat` event to
+   *  the durable log, queues the message for the next wait return, and wakes a
+   *  parked waiter immediately. Returns the stamped message (null for empty
+   *  text or an ended session). */
+  postMessage(input: { text: string; from?: string }): AgentMessage | null {
+    const text = input.text?.trim()
+    if (!text || this.ended) return null
+    const message: AgentMessage = {
+      id: `msg_${++this.messageSeq}`,
+      from: input.from?.trim() || 'You',
+      text,
+      t: Date.now()
+    }
+    const event: EventLine = {
+      idx: this.events.length + 1,
+      t: message.t,
+      kind: 'chat',
+      speaker: message.from,
+      text: message.text
+    }
+    this.events.push(event)
+    for (const listener of this.chatListeners) listener(event)
+    this.messages.push(message)
+    this.emitDebug('transcript', `chat from ${message.from}: ${message.text}`, {
+      id: message.id
+    })
+    // Wake whichever waiter the agent is parked on (delegation loop in
+    // classifier mode, transcript drain in drain mode).
+    this.flushDelegationWaiters()
+    this.flushWaiters()
+    return message
+  }
+
+  /** Observe each `chat` event as it lands (the durable-persistence hook — the
+   *  counterpart of onTranscript/onSignal for the typed side channel). Returns
+   *  an unsubscribe fn. */
+  onChat(listener: (event: EventLine) => void): () => void {
+    this.chatListeners.add(listener)
+    return () => this.chatListeners.delete(listener)
+  }
+
+  /** The classifier records each verdict here (acted or silent) so the agent's
+   *  next digest carries what the front door heard and decided. Bounded — a
+   *  long quiet park keeps only the most recent VERDICTS_MAX. */
+  recordVerdict(v: Omit<VerdictSummary, 't'> & { t?: number }): void {
+    const entry: VerdictSummary = { t: v.t ?? Date.now(), act: v.act }
+    if (v.type !== undefined) entry.type = v.type
+    if (v.text !== undefined) entry.text = v.text
+    if (v.agent_note !== undefined) entry.agent_note = v.agent_note
+    this.verdicts.push(entry)
+    if (this.verdicts.length > BridgeSession.VERDICTS_MAX) {
+      this.verdicts = this.verdicts.slice(-BridgeSession.VERDICTS_MAX)
+    }
+  }
+
+  /** Note that the effective reflex params changed (either principal — the
+   *  agent's configure-reflex tool or the UI's POST /bridge/config). Bumps the
+   *  health-visible revision and marks the config for the next digest. */
+  notifyParamsChanged(params: ReflexParams): void {
+    this.lastParams = { ...params }
+    this.paramsDirty = true
+    this.paramsRev++
+  }
+
+  /** The current params revision (also on status()); lets a config read/write
+   *  response carry the rev so a client can keep its change-watch primed. */
+  get paramsRevision(): number {
+    return this.paramsRev
+  }
+
+  /** Assemble (and consume) the digest since the agent's last wake: new
+   *  durable-log events (capped at DIGEST_EVENTS_MAX, `truncated` when the gap
+   *  was larger), the classifier verdicts, and the effective params when they
+   *  changed. Undefined when nothing new — the wait return then omits it. */
+  private buildDigest(): Digest | undefined {
+    const total = this.events.length
+    const hasEvents = total > this.digestCursor
+    if (!hasEvents && this.verdicts.length === 0 && !this.paramsDirty) {
+      return undefined
+    }
+    const gap = total - this.digestCursor
+    const truncated = gap > BridgeSession.DIGEST_EVENTS_MAX
+    const digest: Digest = {
+      events: this.events.slice(
+        truncated ? total - BridgeSession.DIGEST_EVENTS_MAX : this.digestCursor
+      ),
+      cursor: total,
+      verdicts: this.verdicts
+    }
+    if (truncated) digest.truncated = true
+    if (this.paramsDirty && this.lastParams) digest.config = { ...this.lastParams }
+    this.digestCursor = total
+    this.verdicts = []
+    this.paramsDirty = false
+    return digest
+  }
+
+  /** Drain the whole pending message queue (delivered once, on a wait return). */
+  private takeMessages(): AgentMessage[] {
+    if (this.messages.length === 0) return []
+    return this.messages.splice(0, this.messages.length)
+  }
+
   /** Replace the passive archive with a resumed session's restored history.
    *  Replaces (not appends) so a re-activate can't duplicate it. Does NOT wake
    *  waiters — the archive is read-on-demand only (getTranscript()), never part
@@ -363,7 +505,11 @@ export class BridgeSession {
     // classifier mode, where nothing calls this.
     this.agentSeenAt = Date.now()
     return new Promise((resolve) => {
-      if (this.deliveredCursor < this.transcript.length || this.ended) {
+      if (
+        this.deliveredCursor < this.transcript.length ||
+        this.messages.length > 0 ||
+        this.ended
+      ) {
         resolve(this.drainBatch())
         return
       }
@@ -387,18 +533,28 @@ export class BridgeSession {
   private drainBatch(): WaitResult {
     const lines = this.transcript.slice(this.deliveredCursor)
     this.deliveredCursor = this.transcript.length
-    return {
+    const result: WaitResult = {
       lines,
       cursor: this.deliveredCursor,
       session_ended: this.ended,
       idle: lines.length === 0
     }
+    // Typed side-channel messages ride the same return (v7); their arrival
+    // counts as work, so the wake isn't mistaken for an idle heartbeat.
+    const messages = this.takeMessages()
+    if (messages.length) {
+      result.messages = messages
+      result.idle = false
+    }
+    return result
   }
 
   private flushWaiters(): void {
     while (
       this.waiters.length &&
-      (this.deliveredCursor < this.transcript.length || this.ended)
+      (this.deliveredCursor < this.transcript.length ||
+        this.messages.length > 0 ||
+        this.ended)
     ) {
       const waiter = this.waiters.shift()!
       if (waiter.timer) clearTimeout(waiter.timer)
@@ -489,8 +645,8 @@ export class BridgeSession {
     this.agentSeenAt = Date.now()
     return new Promise((resolve) => {
       this.retireActive()
-      if (this.hasQueued() || this.ended) {
-        resolve(this.nextDelegation())
+      if (this.hasQueued() || this.messages.length > 0 || this.ended) {
+        resolve(this.delegationResult())
         return
       }
       const secs = Math.max(1, Math.min(maxWaitSec || 25, this.maxBlockSec))
@@ -498,7 +654,9 @@ export class BridgeSession {
       waiter.timer = setTimeout(() => {
         const i = this.delegationWaiters.indexOf(waiter)
         if (i >= 0) this.delegationWaiters.splice(i, 1)
-        resolve({ delegations: [], session_ended: this.ended, idle: true })
+        // Idle timeout — but still carry the digest (v7): the heartbeat wake is
+        // exactly when the agent reviews ambient context.
+        resolve(this.delegationResult())
       }, secs * 1000)
       this.delegationWaiters.push(waiter)
     })
@@ -544,15 +702,35 @@ export class BridgeSession {
     }
   }
 
+  /** Assemble one wait return: the next delegation (if any) plus the pending
+   *  side-channel messages and the ambient digest (v7). A message counts as
+   *  work (idle false); a digest alone does not — it is context, not a task. */
+  private delegationResult(): WaitDelegationResult {
+    const result = this.nextDelegation()
+    const messages = this.takeMessages()
+    if (messages.length) {
+      result.messages = messages
+      result.idle = false
+    }
+    const digest = this.buildDigest()
+    if (digest) result.digest = digest
+    return result
+  }
+
   private flushDelegationWaiters(): void {
     // Hand the single queued item to a parked agent only when nothing is in
     // flight (a parked waiter implies the agent is idle ⇒ no active; the guard is
-    // belt-and-suspenders). On end, drain every waiter idle so none leak.
+    // belt-and-suspenders). A pending side-channel message wakes the waiter
+    // regardless (v7). On end, drain every waiter idle so none leak.
     while (this.delegationWaiters.length) {
-      if (!this.ended && (this.activeId !== null || !this.hasQueued())) break
+      const wake =
+        this.ended ||
+        this.messages.length > 0 ||
+        (this.activeId === null && this.hasQueued())
+      if (!wake) break
       const waiter = this.delegationWaiters.shift()!
       if (waiter.timer) clearTimeout(waiter.timer)
-      waiter.resolve(this.nextDelegation())
+      waiter.resolve(this.delegationResult())
     }
   }
 
@@ -722,7 +900,8 @@ export class BridgeSession {
       session_ended: this.ended,
       reflex_ready: this.reflexReady,
       agent_connected: connected,
-      agent_working: working
+      agent_working: working,
+      params_rev: this.paramsRev
     }
   }
 }

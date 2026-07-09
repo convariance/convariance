@@ -23,7 +23,13 @@
 //   - dispose()         stop / leave / unmount — end the round (POST /bridge/end,
 //                       the agent stops listening) and tear everything down.
 
-import type { BridgeMode, Signal, SignalType, TranscriptInput } from '../core/index.ts'
+import type {
+  BridgeMode,
+  ReflexParams,
+  Signal,
+  SignalType,
+  TranscriptInput
+} from '../core/index.ts'
 
 /** One transcript segment as the client sees it: the host resolves the display
  *  speaker before pushing (contact names etc. are its concern). A segment's
@@ -110,6 +116,23 @@ export interface BridgeDebugEvent {
   data?: Record<string, unknown>
 }
 
+/** A typed side-channel message the gateway accepted (v7 — PRD 019). Emitted
+ *  after the POST acks, so the host renders confirmed sends (single source:
+ *  render on this event, not optimistically). */
+export interface BridgeChatEvent {
+  id: string
+  from: string
+  text: string
+  t: number
+}
+
+/** The live reflex params changed (v7): by this client's own setConfig, or
+ *  noticed on the health poll via `params_rev` (the agent retuned it via its
+ *  configure-reflex tool). `params` is null when no classifier is wired. */
+export interface BridgeConfigEvent {
+  params: ReflexParams | null
+}
+
 export interface BridgeClientEventMap {
   status: BridgeStatusEvent
   turn: BridgeTurnEvent
@@ -118,6 +141,8 @@ export interface BridgeClientEventMap {
   /** Every newly-applied signal, raw — for kinds the turn lifecycle doesn't
    *  cover (e.g. `graph`) and for hosts that want the wire view. */
   signal: Signal
+  chat: BridgeChatEvent
+  config: BridgeConfigEvent
   debug: BridgeDebugEvent
 }
 
@@ -130,6 +155,15 @@ export interface BridgeClientControls {
   /** Live-tune the forward cadence. `tailIdleMs` is read live; a changed
    *  `flushMs` restarts the flush interval. */
   setParams(partial: { flushMs?: number; tailIdleMs?: number }): void
+  /** Send a typed message to the agent (the v7 side channel). Resolves true
+   *  once the gateway accepted it (a `chat` event fires with the stamped id);
+   *  false on failure — the host shows an error, nothing was queued. */
+  sendMessage(text: string, from?: string): Promise<boolean>
+  /** Read the live reflex params (null = no classifier / unreachable). */
+  getConfig(): Promise<ReflexParams | null>
+  /** Patch the live reflex params (the AI-style control / Debug Panel). The
+   *  new effective params also come back on a `config` event. */
+  setConfig(partial: Partial<ReflexParams>): Promise<ReflexParams | null>
   dispose(): void
 }
 
@@ -718,6 +752,86 @@ export function createBridgeClient(opts: BridgeClientOptions): BridgeClient {
     reflex_ready?: boolean
     agent_connected?: boolean
     agent_working?: boolean
+    params_rev?: number
+  }
+
+  // --- reflex config + the typed side channel (v7 — PRD 019) ----------------
+
+  // The last params revision we know about. Primed silently (first health read
+  // or any config read/write); a LATER change noticed on the health poll means
+  // the other principal (the agent) retuned the reflex → fetch + emit `config`.
+  let knownParamsRev: number | null = null
+
+  interface ConfigShape {
+    params: ReflexParams | null
+    rev?: number
+  }
+
+  async function getConfig(): Promise<ReflexParams | null> {
+    try {
+      const res = await fetch(`${base}/bridge/config`, { headers: authHeaders })
+      if (!res.ok) return null
+      const data = (await res.json()) as ConfigShape
+      if (typeof data.rev === 'number') knownParamsRev = data.rev
+      return data.params
+    } catch {
+      return null
+    }
+  }
+
+  async function setConfig(partial: Partial<ReflexParams>): Promise<ReflexParams | null> {
+    try {
+      const res = await fetch(`${base}/bridge/config`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify(partial)
+      })
+      if (!res.ok) return null
+      const data = (await res.json()) as ConfigShape
+      if (typeof data.rev === 'number') knownParamsRev = data.rev
+      emit('config', { params: data.params })
+      emitDebug('params', 'reflex config updated', { partial })
+      return data.params
+    } catch {
+      return null
+    }
+  }
+
+  // Notice the OTHER principal's config change on the health poll: the rev
+  // moved and it wasn't one of our own writes (those update knownParamsRev
+  // through their response before the next poll lands).
+  function watchParamsRev(s: HealthShape): void {
+    if (typeof s.params_rev !== 'number') return
+    if (knownParamsRev === null) {
+      knownParamsRev = s.params_rev
+      return
+    }
+    if (s.params_rev === knownParamsRev) return
+    knownParamsRev = s.params_rev
+    void getConfig().then((params) => emit('config', { params }))
+  }
+
+  async function sendMessage(text: string, from?: string): Promise<boolean> {
+    const trimmed = text.trim()
+    if (!trimmed || disposed) return false
+    const sender = from?.trim() || 'You'
+    try {
+      const res = await fetch(`${base}/bridge/message`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ text: trimmed, from: sender })
+      })
+      if (!res.ok) return false
+      const data = (await res.json().catch(() => null)) as
+        | { ok?: boolean; id?: string; t?: number }
+        | null
+      if (!data?.ok || !data.id) return false
+      emit('chat', { id: data.id, from: sender, text: trimmed, t: data.t ?? Date.now() })
+      emitDebug('chat', `message sent: ${trimmed}`, { id: data.id })
+      return true
+    } catch {
+      return false
+    }
   }
 
   function noteMode(s: HealthShape): void {
@@ -784,6 +898,7 @@ export function createBridgeClient(opts: BridgeClientOptions): BridgeClient {
       const s = (await res.json()) as HealthShape
       noteMode(s)
       applyPresence(s)
+      watchParamsRev(s)
       const heard = heardCursor(s)
       if (typeof heard === 'number' && heard !== lastHeard) {
         lastHeard = heard
@@ -880,5 +995,15 @@ export function createBridgeClient(opts: BridgeClientOptions): BridgeClient {
     })
   }
 
-  return { on: addListener, pushSegments, activate, setForwarding, setParams, dispose }
+  return {
+    on: addListener,
+    pushSegments,
+    activate,
+    setForwarding,
+    setParams,
+    sendMessage,
+    getConfig,
+    setConfig,
+    dispose
+  }
 }

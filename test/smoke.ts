@@ -486,6 +486,54 @@ async function checkDrainMode(): Promise<void> {
         drained.idle === false,
       `lines=${drained.lines?.length} cursor=${drained.cursor}`
     )
+
+    // v7 side channel: a typed message POSTed to /bridge/message wakes the
+    // parked wait and rides its return as `messages` (not a transcript line).
+    const msgWait = gw.call('tools/call', {
+      name: 'WaitForTranscript',
+      arguments: { max_wait_seconds: 10 }
+    })
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/bridge/message',
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-bridge-token': token }
+        },
+        (res) => {
+          res.resume()
+          res.on('end', resolve)
+        }
+      )
+      req.on('error', reject)
+      req.end(JSON.stringify({ text: 'summarize where we are', from: 'Ada' }))
+    })
+    const woke = JSON.parse((await msgWait).result.content[0].text) as Json
+    check(
+      'a typed /bridge/message wakes the wait and rides it as messages (v7)',
+      woke.messages?.length === 1 &&
+        woke.messages[0]?.from === 'Ada' &&
+        woke.idle === false &&
+        (woke.lines?.length ?? 0) === 0,
+      `messages=${woke.messages?.length}`
+    )
+
+    // v7 steering: ConfigureReflex exists in the tool set; with no classifier
+    // wired (drain mode) it reports params: null instead of erroring.
+    check('drain mode exposes ConfigureReflex', names.includes('ConfigureReflex'))
+    const cfg = JSON.parse(
+      (await gw.call('tools/call', {
+        name: 'ConfigureReflex',
+        arguments: { sensitivity: 'eager' }
+      })).result.content[0].text
+    ) as Json
+    check(
+      'ConfigureReflex is null-safe without a classifier',
+      cfg.params === null,
+      JSON.stringify(cfg)
+    )
   } finally {
     gw.proc.kill()
   }

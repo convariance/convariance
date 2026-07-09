@@ -151,3 +151,127 @@ test('adopt() with a different id starts a clean round under it', () => {
   assert.equal(s.getSessionId(), 's_other', 'the round keys on the adopted id')
   assert.equal(s.eventsSince(0).events.length, 0, 'the previous room\'s log is not carried over')
 })
+
+// --- v7 (PRD 019): the typed side channel + the ambient digest ---------------
+
+test('postMessage logs a chat event, fires onChat, and rides the next delegation wait', async () => {
+  const s = newSession()
+  const seen: string[] = []
+  s.onChat((e) => seen.push(`${e.kind}:${e.text}`))
+  const msg = s.postMessage({ text: 'summarize where we are', from: 'Tobias' })
+  assert.ok(msg)
+  assert.equal(msg!.from, 'Tobias')
+  assert.deepEqual(seen, ['chat:summarize where we are'])
+  const events = s.eventsSince(0).events
+  assert.equal(events.at(-1)?.kind, 'chat')
+  assert.equal(events.at(-1)?.speaker, 'Tobias')
+
+  const r = await s.waitForDelegation(1)
+  assert.equal(r.idle, false, 'a typed message is work, not an idle wake')
+  assert.equal(r.messages?.length, 1)
+  assert.equal(r.messages?.[0]?.id, msg!.id)
+  const again = await s.waitForDelegation(1)
+  assert.equal(again.messages, undefined, 'messages are delivered exactly once')
+})
+
+test('postMessage WAKES a parked delegation waiter immediately', async () => {
+  const s = newSession()
+  const parked = s.waitForDelegation(30) // would block ~30s without the wake
+  const start = Date.now()
+  s.postMessage({ text: 'quick question' })
+  const r = await parked
+  assert.ok(Date.now() - start < 1000, 'the message resolved the parked wait, not the timeout')
+  assert.equal(r.messages?.[0]?.text, 'quick question')
+})
+
+test('postMessage rides the drain-mode transcript wait too', async () => {
+  const s = newSession()
+  const parked = s.waitForTranscript(30)
+  s.postMessage({ text: 'typed ask' })
+  const r = await parked
+  assert.equal(r.idle, false)
+  assert.equal(r.messages?.[0]?.text, 'typed ask')
+  assert.equal(r.lines.length, 0, 'a chat message is NOT a transcript line')
+})
+
+test('postMessage rejects empty text and an ended session', () => {
+  const s = newSession()
+  assert.equal(s.postMessage({ text: '   ' }), null)
+  s.end()
+  assert.equal(s.postMessage({ text: 'too late' }), null)
+})
+
+test('digest carries new events + verdicts since the last wake, consumed once', async () => {
+  const s = newSession()
+  s.pushTranscript([{ speaker: 'Al', text: 'first point' }])
+  s.recordVerdict({ act: false })
+  s.recordVerdict({ act: true, type: 'insight', text: 'a connection' })
+  const r = await s.waitForDelegation(1)
+  assert.ok(r.digest, 'a wake after activity carries the digest')
+  assert.equal(r.digest!.events.length, 1)
+  assert.equal(r.digest!.events[0]?.text, 'first point')
+  assert.equal(r.digest!.verdicts.length, 2)
+  assert.equal(r.digest!.verdicts[1]?.type, 'insight')
+  assert.equal(r.digest!.cursor, 1)
+  assert.equal(r.idle, true, 'a digest alone is context, not work')
+
+  const again = await s.waitForDelegation(1)
+  assert.equal(again.digest, undefined, 'the digest is consumed exactly once per wake')
+})
+
+test('digest truncates a large gap and says so', async () => {
+  const s = newSession()
+  for (let i = 0; i < 70; i++) s.pushTranscript([{ speaker: 'Al', text: `line ${i}` }])
+  const r = await s.waitForDelegation(1)
+  assert.equal(r.digest!.truncated, true)
+  assert.equal(r.digest!.events.length, 60, 'capped at the most recent slice')
+  assert.equal(r.digest!.events[0]?.text, 'line 10')
+  assert.equal(r.digest!.cursor, 70, 'cursor still advances past the gap')
+})
+
+test('verdict agent_note survives into the digest', async () => {
+  const s = newSession()
+  s.recordVerdict({ act: false, agent_note: 'room is circling pricing — research could help' })
+  const r = await s.waitForDelegation(1)
+  assert.match(r.digest!.verdicts[0]?.agent_note ?? '', /pricing/)
+})
+
+test('notifyParamsChanged bumps params_rev and ships config in the NEXT digest only', async () => {
+  const s = newSession()
+  assert.equal(s.status().params_rev, 0)
+  const params = {
+    debounceMs: 1400, minIntervalMs: 1500, windowLines: 40, maxTokens: 400,
+    model: 'claude-haiku-4-5', sensitivity: 'eager' as const
+  }
+  s.notifyParamsChanged(params)
+  assert.equal(s.status().params_rev, 1)
+  const r = await s.waitForDelegation(1)
+  assert.equal(r.digest?.config?.sensitivity, 'eager')
+  s.pushTranscript([{ speaker: 'Al', text: 'more talk' }])
+  const again = await s.waitForDelegation(1)
+  assert.ok(again.digest, 'new speech still produces a digest')
+  assert.equal(again.digest!.config, undefined, 'config rides only the wake after a change')
+})
+
+test('reset clears messages/digest state but re-marks the effective config for the new round', async () => {
+  const s = newSession()
+  s.notifyParamsChanged({
+    debounceMs: 1, minIntervalMs: 1, windowLines: 1, maxTokens: 1, model: 'm'
+  })
+  await s.waitForDelegation(1) // consume the change notice
+  s.postMessage({ text: 'stale' })
+  s.reset()
+  const r = await s.waitForDelegation(1)
+  assert.equal(r.messages, undefined, 'a prior round\'s message never leaks')
+  assert.equal(r.digest?.config?.model, 'm', 'the new round\'s first digest re-states the config')
+})
+
+test('a delegation and a pending message ride one wake together', async () => {
+  const s = newSession()
+  s.postMessage({ text: 'also this' })
+  s.delegate(del('Looking it up…', 'research the thing'))
+  const r = await s.waitForDelegation(1)
+  assert.equal(r.delegations.length, 1)
+  assert.equal(r.messages?.length, 1)
+  assert.equal(r.idle, false)
+})

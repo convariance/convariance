@@ -39,7 +39,21 @@
 // left the session core), GetSessionUrl does not gate on `reflex_ready`, and
 // `delivered` (not `classified`) is the read-receipt cursor. Health stamps
 // `mode`; absent = `classifier` (older gateways / hosted deployments).
-export const PROTOCOL_VERSION = 6
+// v7 (PRD 019 — comms) gives the agent ambient awareness and the room a typed
+// side channel, all riding the existing heartbeat:
+//   - every wait return may carry a `digest` — the durable-log events since the
+//     agent's last wake + the classifier's verdicts (incl. silent ones, and an
+//     optional `agent_note` whisper) + the effective reflex params when they
+//     changed. The agent MAY act on a digest (it is no longer structurally mute
+//     when the classifier stays silent), at heartbeat cadence.
+//   - typed user messages (`chat` event kind, POST /bridge/message) go straight
+//     to the agent as `messages` on the wait return, waking a parked waiter
+//     immediately — a deliberate ask never waits for the classifier.
+//   - the reflex params are steerable by BOTH principals: `directive` +
+//     `sensitivity` extend ReflexParams; the agent patches them via the new
+//     configure-reflex tool, the UI via POST /bridge/config; `params_rev` on
+//     status lets either side notice the other's change.
+export const PROTOCOL_VERSION = 7
 
 /** Default loopback port for the gateway's HTTP/WS face. */
 export const BRIDGE_DEFAULT_PORT = 7700
@@ -161,13 +175,65 @@ export interface Delegation {
 }
 
 /** Return shape of `wait_for_delegation` — the agent's heartbeat. Mirrors
- *  WaitResult: it blocks until a delegation lands (or `max_wait_seconds`), so
- *  the agent still wakes on a quiet cadence to fire timed reminders / notice the
- *  session ending. `idle` true = nothing new; `session_ended` = wrap up + stop. */
+ *  WaitResult: it blocks until a delegation OR a typed message lands (or
+ *  `max_wait_seconds`), so the agent still wakes on a quiet cadence to fire
+ *  timed reminders / notice the session ending. `idle` true = no delegation and
+ *  no message (a `digest` may still be present — ambient context, not work);
+ *  `session_ended` = wrap up + stop. */
 export interface WaitDelegationResult {
   delegations: Delegation[]
+  /** Typed side-channel messages from the room (v7) — direct asks that bypass
+   *  the classifier. Answer each like a direct address. */
+  messages?: AgentMessage[]
+  /** Ambient context since the agent's last wake (v7). Absent when nothing new. */
+  digest?: Digest
   session_ended: boolean
   idle: boolean
+}
+
+// --- Ambient awareness: the digest + typed side channel (v7 — PRD 019) ------
+
+/** A typed message from the room to the agent (the side channel): a deliberate
+ *  ask entered in the session UI, delivered on the next wait return — waking a
+ *  parked waiter immediately, not at the next heartbeat. */
+export interface AgentMessage {
+  id: string
+  /** The sender's display name. */
+  from: string
+  text: string
+  t: number
+}
+
+/** One classifier verdict, summarized for the agent's digest. Silent verdicts
+ *  are just `{ t, act: false }` — cheap by design. `agent_note` is the
+ *  classifier's optional whisper to the agent (a recommendation the room never
+ *  sees: "this could use background research"). */
+export interface VerdictSummary {
+  t: number
+  act: boolean
+  type?: SignalType
+  text?: string
+  agent_note?: string
+}
+
+/** Ambient context attached to a wait return (v7): what happened since the
+ *  agent's last wake. The agent stays informed at heartbeat cadence and MAY
+ *  engage off it (send a signal, volunteer work) — with restraint; the
+ *  classifier is still the room's reactive front door. */
+export interface Digest {
+  /** Durable-log events (speech, cards, chat) since the last wake — capped;
+   *  see `truncated`. */
+  events: EventLine[]
+  /** The agent's new digest cursor (the log's high-water idx). */
+  cursor: number
+  /** True when the gap exceeded the cap: `events` is only the most recent
+   *  slice — call sync_transcript for the rest. */
+  truncated?: boolean
+  /** Classifier verdicts since the last wake (classifier mode only). */
+  verdicts: VerdictSummary[]
+  /** The effective reflex params — present ONLY when they changed since the
+   *  last wake (either principal), so the agent notices UI-side retuning. */
+  config?: ReflexParams
 }
 
 // --- On-demand transcript history (v4) ---------------------------------------
@@ -194,18 +260,19 @@ export interface GetTranscriptResult {
 
 // --- The durable event log (sync_transcript, v6 — PRD 011) ------------------
 
-export type EventKind = 'speech' | 'card'
+export type EventKind = 'speech' | 'card' | 'chat'
 
-/** One entry in the unified append-only transcript-of-record: either a line of
- *  room speech (`kind: 'speech'`, `speaker` + `text`) or an AI contribution
- *  (`kind: 'card'`, `cardType` + `text` [+ `detail`/`id`]) — interleaved in the
- *  order they happened, under one monotonic `idx` (the sync cursor). Control
- *  lines (session-config) are NOT logged. */
+/** One entry in the unified append-only transcript-of-record: a line of room
+ *  speech (`kind: 'speech'`, `speaker` + `text`), an AI contribution
+ *  (`kind: 'card'`, `cardType` + `text` [+ `detail`/`id`]), or a typed
+ *  side-channel message to the agent (`kind: 'chat'`, `speaker` + `text` —
+ *  v7) — interleaved in the order they happened, under one monotonic `idx`
+ *  (the sync cursor). Control lines (session-config) are NOT logged. */
 export interface EventLine {
   idx: number
   t: number
   kind: EventKind
-  /** speech only — who spoke (the resolved display name forwarded by the SPA). */
+  /** speech/chat — who spoke or typed (the resolved display name). */
   speaker?: string
   /** The line text, or the card's text (a loading label while `pending`). */
   text: string
@@ -243,6 +310,11 @@ export interface SessionMeta {
 /** Return shape of `wait_for_transcript` — the heartbeat of the loop. */
 export interface WaitResult {
   lines: TranscriptLine[]
+  /** Typed side-channel messages (v7): in drain mode too, a typed ask wakes the
+   *  parked waiter immediately and rides the return. (No `digest` here — the
+   *  drain agent hears the room itself, so a digest would just duplicate
+   *  `lines`.) */
+  messages?: AgentMessage[]
   cursor: number
   session_ended: boolean
   idle: boolean
@@ -280,6 +352,11 @@ export interface SessionStatus {
    *  back to park). `agent_connected && agent_working` ⇒ "working"; connected and
    *  not working ⇒ "listening". */
   agent_working: boolean
+  /** Monotonic revision of the reflex params (v7): bumped on every change from
+   *  either principal (the agent's configure-reflex tool, the UI's POST
+   *  /bridge/config). The browser client watches it on the health poll to
+   *  notice agent-side retuning. */
+  params_rev?: number
 }
 
 // --- Debug channel (gateway → web, observability only) ----------------------
@@ -311,8 +388,16 @@ export interface DebugEvent {
   data?: Record<string, unknown>
 }
 
+/** Coarse steering preset for the classifier's judgment (v7): how eager it
+ *  should be to surface cards. Implementations map it to both prompt language
+ *  and their suppression guards. `balanced` = the default behavior. */
+export type ReflexSensitivity = 'quiet' | 'balanced' | 'eager'
+
 /** The reflex layer's live-tunable parameters (PRD 008 §3.2). Surfaced + pushed
- *  over GET/POST /bridge/config so the Debug Panel can tune cadence mid-test. */
+ *  over GET/POST /bridge/config so the Debug Panel can tune cadence mid-test.
+ *  v7 (PRD 019) adds the semantic levers — `directive` + `sensitivity` — and a
+ *  second writer: the agent's configure-reflex tool. The classifier's base
+ *  prompt stays owner-controlled; steering is additive only. */
 export interface ReflexParams {
   /** Batch rapid lines this long before firing a classify. */
   debounceMs: number
@@ -324,4 +409,10 @@ export interface ReflexParams {
   maxTokens: number
   /** The reflex model id. */
   model: string
+  /** A steering paragraph appended to the classifier's base prompt (v7) —
+   *  "be more generous with insights", "sensitive topic, flag risks
+   *  aggressively". Bounded (implementations cap length); empty = none. */
+  directive?: string
+  /** Coarse eagerness preset (v7); absent = 'balanced'. */
+  sensitivity?: ReflexSensitivity
 }

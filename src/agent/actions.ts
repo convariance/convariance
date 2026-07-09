@@ -74,12 +74,36 @@ const debugChunk = z.object({
   data: z.record(z.string(), z.unknown()).optional()
 })
 
-// Partial reflex params (POST /bridge/config). All optional — patch semantics.
-const reflexParamsSchema = z.object({
+// The steering levers (v7 — PRD 019), shared by both config writers.
+const steeringFields = {
+  directive: z
+    .string()
+    .max(500)
+    .optional()
+    .describe(
+      'A steering paragraph appended to the classifier\'s base prompt ' +
+      '("be more generous with insights", "sensitive topic — flag risks ' +
+      'aggressively"). Empty string clears it. Max 500 chars.'
+    ),
+  sensitivity: z
+    .enum(['quiet', 'balanced', 'eager'])
+    .optional()
+    .describe('Coarse eagerness preset: quiet | balanced (default) | eager.')
+}
+
+const cadenceFields = {
   debounceMs: z.number().optional().describe('Batch rapid lines this long before classifying (ms).'),
   minIntervalMs: z.number().optional().describe('Floor between classify calls (ms).'),
   windowLines: z.number().optional().describe('Rolling transcript window size (lines).'),
-  maxTokens: z.number().optional().describe('max_tokens for the classify call.'),
+  maxTokens: z.number().optional().describe('max_tokens for the classify call.')
+}
+
+// Partial reflex params (POST /bridge/config). All optional — patch semantics.
+// The browser face keeps `model` (the Debug Panel on a user-keyed local
+// gateway); the agent-facing configure-reflex tool deliberately omits it.
+const reflexParamsSchema = z.object({
+  ...cadenceFields,
+  ...steeringFields,
   model: z.string().optional().describe('The reflex model id.')
 })
 
@@ -109,9 +133,11 @@ const WaitForTranscript = createAction({
     'lines that come back, then call it again. YOU are the room\'s front ' +
     'door — decide for yourself what deserves a reaction, and send a signal ' +
     'only when it clearly helps (precision over recall; most batches deserve ' +
-    'silence). Returns { lines, cursor, session_ended, idle }. When idle is ' +
-    'true nothing arrived — check any timed reminders, then call again. Stop ' +
-    'when session_ended (send a closing note first).',
+    'silence). Returns { lines, messages, cursor, session_ended, idle }. ' +
+    '`messages` are TYPED asks from the room\'s UI — each is a direct request ' +
+    'to you; always answer one (a `present` signal, pending + fill if it needs ' +
+    'work). When idle is true nothing arrived — check any timed reminders, ' +
+    'then call again. Stop when session_ended (send a closing note first).',
   disposition: 'json',
   input: z.object({
     max_wait_seconds: z
@@ -127,18 +153,29 @@ const WaitForDelegation = createAction({
   name: 'wait-for-delegation',
   description:
     'Block until the fast reflex layer hands you work to do (or until ' +
-    'max_wait_seconds elapses), then return it. This is the heartbeat of your ' +
-    'loop: call it, park here at zero token cost, do the delegation that comes ' +
-    'back, then call it again. You do NOT listen to raw speech — the reflex is ' +
-    'the room\'s front door and only escalates to you when real work is needed. ' +
-    'Returns { delegations, session_ended, idle }. It hands you AT MOST ONE ' +
-    'delegation per call (handle it, then call again for the next) — the queue is ' +
-    'sequenced, and newer work that supersedes a still-queued item replaces it ' +
-    'before you ever see it. Each delegation is { id, task, label }: do `task`, ' +
-    'then send a `present` signal with the SAME `id` (no pending) to fill the ' +
-    'loading card the room already sees. When idle is true nothing arrived — ' +
-    'check any timed reminders, then call again. Stop when session_ended (send a ' +
-    'closing note first).',
+    'max_wait_seconds elapses; park at 30), then return it. This is the ' +
+    'heartbeat of your loop: call it, park here at zero token cost, handle ' +
+    'what comes back, then call it again. You do NOT listen to raw speech — ' +
+    'the reflex is the room\'s front door. ' +
+    'Returns { delegations, messages, digest, session_ended, idle }. ' +
+    'It hands you AT MOST ONE delegation per call (handle it, then call again ' +
+    'for the next) — the queue is sequenced, and newer work that supersedes a ' +
+    'still-queued item replaces it before you ever see it. Each delegation is ' +
+    '{ id, task, label }: do `task`, then send a `present` signal with the ' +
+    'SAME `id` (no pending) to fill the loading card the room already sees. ' +
+    '`messages` are TYPED asks from the room\'s UI (the side channel) — each ' +
+    'is a direct request to you; always answer one with a `present` (open a ' +
+    'pending card + fill it if the ask needs real work). ' +
+    '`digest` is your AMBIENT AWARENESS: what the room said since your last ' +
+    'wake, what the reflex decided (incl. its silent verdicts and any ' +
+    'agent_note recommendations), and the reflex config when it changed. Read ' +
+    'it every wake — you MAY act on it (a signal, proactive research the user ' +
+    'asked for) even with no delegation, but with restraint: the reflex is ' +
+    'still the reactive front door, so do not answer things it already ' +
+    'handled. `digest.truncated` means you missed more — use SyncTranscript. ' +
+    'When idle is true there is no work (a digest may still be attached) — ' +
+    'review it, check any timed reminders, then call again. Stop when ' +
+    'session_ended (send a closing note first).',
   disposition: 'json',
   input: z.object({
     max_wait_seconds: z
@@ -148,6 +185,33 @@ const WaitForDelegation = createAction({
   }),
   run: async ({ max_wait_seconds }, ctx) =>
     getSession(ctx).waitForDelegation(max_wait_seconds)
+})
+
+// The agent's steering lever on the reflex (v7 — PRD 019). Deliberately
+// omits `model` (on a hosted deployment classify calls run on the operator's
+// key; the local Debug Panel keeps model via POST /bridge/config).
+const ConfigureReflex = createAction({
+  name: 'configure-reflex',
+  description:
+    'Steer the fast reflex layer (the room\'s front-door classifier) at ' +
+    'runtime — patch semantics, only the fields you pass change. Use it when ' +
+    'the user asks to change the AI\'s behavior: "be more responsive" → ' +
+    'sensitivity "eager"; "be extra careful, sensitive topic" → sensitivity ' +
+    '"quiet" and/or a directive; "suggest talking points proactively" → a ' +
+    'directive saying so. `directive` is a short steering paragraph appended ' +
+    'to the reflex\'s prompt; `sensitivity` is a coarse eagerness preset. ' +
+    'After changing it, confirm to the room with a short card. Change ' +
+    'sparingly — a directive change costs a prompt-cache rewrite; never churn ' +
+    'it per utterance. Returns { params } = the full effective config (null ' +
+    'when this gateway runs no classifier).',
+  disposition: 'json',
+  input: z.object({ ...steeringFields, ...cadenceFields }),
+  run: async (input, ctx) => {
+    const config = getConfig(ctx)
+    const params = config?.set(input as Partial<ReflexParams>) ?? null
+    if (params) getSession(ctx).notifyParamsChanged(params)
+    return { params }
+  }
 })
 
 const SendSignal = createAction({
@@ -337,7 +401,10 @@ export function agentActionsFor(mode: BridgeMode) {
     SendSignal,
     SessionStatus,
     SyncTranscript,
-    GetSessionUrl
+    GetSessionUrl,
+    // In drain mode there is no classifier — the tool then reports
+    // params: null, mirroring GET /bridge/config.
+    ConfigureReflex
   ]
 }
 
@@ -455,6 +522,28 @@ const DrainSignals = createAction({
   }
 })
 
+// The typed side channel (v7 — PRD 019): a deliberate ask from the room's UI,
+// straight to the agent — it bypasses the classifier and wakes a parked wait
+// immediately. Logged as a `chat` event in the durable transcript-of-record.
+const SendMessage = createAction({
+  name: 'send-message',
+  description:
+    'Web app → gateway: a typed message to the AI participant (the side ' +
+    'channel). Queued for the agent\'s next wait return, waking a parked ' +
+    'waiter immediately; logged as a `chat` event.',
+  method: 'POST',
+  path: 'bridge/message',
+  input: z.object({
+    text: z.string().describe('The message text.'),
+    from: z.string().optional().describe('Sender display name (default "You").')
+  }),
+  run: async (input, ctx) => {
+    const message = getSession(ctx).postMessage(input)
+    if (!message) return { ok: false as const }
+    return { ok: true as const, id: message.id, t: message.t }
+  }
+})
+
 const EndSession = createAction({
   name: 'end-session',
   description: 'Web app → gateway: the room closed; end the session.',
@@ -515,30 +604,39 @@ const DrainDebug = createAction({
   }
 })
 
-// Read the live reflex params (the Debug Panel's initial state). `params` is
-// null when no reflex is wired (no key) — the panel then shows the gateway
-// params as unavailable.
+// Read the live reflex params (the Debug Panel's / AI-style control's initial
+// state). `params` is null when no reflex is wired (no key) — the panel then
+// shows the gateway params as unavailable. `rev` primes the client's
+// change-watch (params_rev on health).
 const GetConfig = createAction({
   name: 'get-config',
   description: 'Web app → gateway: read the live reflex params (or null).',
   kind: 'query',
   path: 'bridge/config',
   input: z.object({}),
-  run: async (_input, ctx) => ({ params: getConfig(ctx)?.get() ?? null })
+  run: async (_input, ctx) => {
+    const session = getSession(ctx)
+    return { params: getConfig(ctx)?.get() ?? null, rev: session.paramsRevision }
+  }
 })
 
-// Patch the live reflex params (the Debug Panel's sliders). Applies immediately
-// to the running classifier; returns the new effective params (or null).
+// Patch the live reflex params (the Debug Panel's sliders / the AI-style
+// control). Applies immediately to the running classifier; returns the new
+// effective params (or null). Bumps params_rev + marks the config for the
+// agent's next digest, so a UI edit reaches the agent too (v7).
 const SetConfig = createAction({
   name: 'set-config',
-  description: 'Web app → gateway: patch the live reflex params (tune cadence).',
+  description: 'Web app → gateway: patch the live reflex params (tune cadence / steering).',
   method: 'POST',
   path: 'bridge/config',
   input: reflexParamsSchema,
   run: async (input, ctx) => {
+    const session = getSession(ctx)
     const config = getConfig(ctx)
-    if (!config) return { params: null }
-    return { params: config.set(input as Partial<ReflexParams>) }
+    if (!config) return { params: null, rev: session.paramsRevision }
+    const params = config.set(input as Partial<ReflexParams>)
+    if (params) session.notifyParamsChanged(params)
+    return { params, rev: session.paramsRevision }
   }
 })
 
@@ -547,6 +645,7 @@ export const browserActions = [
   AdoptSession,
   PushHistory,
   DrainSignals,
+  SendMessage,
   EndSession,
   Health,
   DrainDebug,
