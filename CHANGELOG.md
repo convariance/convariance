@@ -1,10 +1,12 @@
 # convariance
 
-## Unreleased
+## 0.3.1
 
 - **Claude Code plugin marketplace removed** (`.claude-plugin/` + `plugins/`):
   it carried no skills or hooks — only MCP server registrations that
   `npx convariance` already handles. No wire-protocol or package-API change.
+- **README revamped** (teaser, badges, the MCP tool surface) and the docs
+  now describe this package entirely on its own terms.
 
 ## 0.3.0
 
