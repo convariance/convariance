@@ -1,10 +1,16 @@
 # convariance
 
+## Unreleased
+
+- **Claude Code plugin marketplace removed** (`.claude-plugin/` + `plugins/`):
+  it carried no skills or hooks — only MCP server registrations that
+  `npx convariance` already handles. No wire-protocol or package-API change.
+
 ## 0.3.0
 
-**Protocol v7 — comms** (Convariance Cloud PRD 019): ambient awareness for the
-agent, a typed side channel for the room, and a steerable classifier. All
-additive — a v6 browser client keeps working against a v7 gateway.
+**Protocol v7 — comms**: ambient awareness for the agent, a typed side
+channel for the room, and a steerable classifier. All additive — a v6
+browser client keeps working against a v7 gateway.
 
 - **The digest**: every `wait_for_delegation` return (delegation, idle, or
   message) may carry `digest` — the durable-log events since the agent's last
@@ -58,15 +64,14 @@ protocol v6.
   custom bundle; `BRIDGE_ALLOWED_ORIGINS` still admits external hosts).
 - **Mic transcription** in the bundled UI via the Web Speech API
   (Chrome/Edge) — speak or type, no external STT service, no API keys.
-- **The bundled UI speaks the Convariance design system**: the cloud's color
-  tokens (navy dark-first canvas, electric-blue accent, per-kind signal
-  palette), self-hosted brand fonts (Fraunces display, Hanken Grotesk body,
-  JetBrains Mono code — latin subsets, no CDN), the serif-C logomark as
-  wordmark + favicon, and inlined lucide icons replacing the emoji badges.
-  The agent's typed contributions now render as the same left-striped signal
-  cards (Idea/Insight/Caution/Note) as Convariance Cloud, with `present`
-  turns as the sparkles-avatar AI bubble and lucide tick delivery receipts.
-  No wire-protocol change.
+- **The bundled UI gets a full visual redesign**: a navy dark-first canvas
+  with an electric-blue accent and a per-kind signal palette, self-hosted
+  brand fonts (Fraunces display, Hanken Grotesk body, JetBrains Mono code —
+  latin subsets, no CDN), the serif-C logomark as wordmark + favicon, and
+  inlined lucide icons replacing the emoji badges. The agent's typed
+  contributions now render as left-striped signal cards
+  (Idea/Insight/Caution/Note), with `present` turns as the sparkles-avatar
+  AI bubble and lucide tick delivery receipts. No wire-protocol change.
 - **New import surface**: `convariance` (core + browser client, zero-dep,
   isomorphic) and `convariance/agent` (`startGateway`, static handler,
   pairing runtime — Node). Migration: `@convariance/core` and

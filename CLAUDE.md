@@ -7,9 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 convariance is the engine for an AI participant in a live conversation: a live
 transcript streams in, an MCP agent (Claude Code) hears it, and typed inline
 contributions flow back into the room while people are still talking. This
-repo is one npm package — `convariance` — the open-source transport/sequencing
-core that powers [Convariance Cloud](https://www.convariance.com), plus the
-npx-runnable agent with a bundled web UI (mic via the Web Speech API, no
+repo is one npm package — `convariance` — the transport/sequencing core plus
+the npx-runnable agent with a bundled web UI (mic via the Web Speech API, no
 external services).
 
 ```
@@ -47,7 +46,7 @@ One package (`convariance`, root package.json), three layers in `src/`:
 Entry points:
 
 - `src/index.ts` → the **`convariance`** export: core + client, zero-dep,
-  browser-safe (what convariance-cloud's frontend consumes).
+  browser-safe (what a frontend consumes).
 - `src/agent.ts` → the **`convariance/agent`** export: `startGateway`,
   `createStaticHandler`, pairing runtime — Node-only (silkweave/zod deps).
 - `src/cli.ts` → the **`convariance` bin**, dual-mode: TTY → setup (registers
@@ -72,9 +71,9 @@ CLAUDE.md is the index; the details live in `docs/`:
 
 | Doc | Covers |
 |---|---|
-| [docs/protocol.md](docs/protocol.md) | the versioned wire protocol: v1→v6 history, drain vs classifier modes, the MCP tool surface, every `/bridge/*` route, auth/pairing (launch URL, token-in-fragment), cursors/idempotency, the turn lifecycle |
+| [docs/protocol.md](docs/protocol.md) | the versioned wire protocol: v1→v7 history, drain vs classifier modes, the MCP tool surface, every `/bridge/*` route, auth/pairing (launch URL, token-in-fragment), cursors/idempotency, the turn lifecycle |
 | [docs/architecture.md](docs/architecture.md) | the gateway process model (two faces, lazy HTTP boot, port walking, teardown), the dual-mode CLI, all `BRIDGE_*` env vars, the tmpdir pairing runtime, `BridgeSession` internals, the classifier seam, the client's forwarding discipline, dev tools |
-| [docs/releasing.md](docs/releasing.md) | build mechanics (tsdown + vite ordering), the release flow (`pnpm version` + CHANGELOG.md + `pnpm publish --otp`), CI, the old-package deprecation, the cloud-consumer migration map |
+| [docs/releasing.md](docs/releasing.md) | build mechanics (tsdown + vite ordering), the release flow (`pnpm version` + CHANGELOG.md + `pnpm publish --otp`), CI, the old-package deprecation and migration map |
 
 ## Gotchas
 
@@ -119,8 +118,4 @@ CLAUDE.md is the index; the details live in `docs/`:
   load the launch URL (or rely on the smoke's static-UI step for the wiring)
 - changelog: yes — hand-maintained root CHANGELOG.md; describe every
   user-visible change, call out wire-protocol impact explicitly
-- extra: this repo is consumed by the private Convariance Cloud repo
-  (`tobiasstrebitzer/convariance-cloud`) — flag any breaking change to the
-  wire protocol or package API so the cloud side can be updated in lockstep
-  (import map: `@convariance/core`/`client` → `convariance`,
-  `@convariance/gateway` → `convariance/agent`)
+- co_authored_by: no (global)

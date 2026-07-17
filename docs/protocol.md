@@ -17,6 +17,7 @@ either side can detect a mismatch. All changes so far have been additive.
 | 4 | On-demand history: `POST /bridge/history` into a passive archive |
 | 5 | Delegations (sole-classifier front door): the reflex classifies every line, the agent parks on `wait_for_delegation` |
 | 6 | The transcript becomes a **durable, append-only event log** (`sync_transcript`, real session ids, sessions index); the local gateway additionally grew the **mode** flag (drain vs classifier) with the open-source split |
+| 7 | Comms: the **digest** rides every `wait_for_delegation` return (log events, classifier verdicts, effective reflex params since the last wake), `POST /bridge/message` is a typed side channel that wakes a parked wait, and the classifier becomes steerable (`directive` + `sensitivity` via the `ConfigureReflex` tool or `POST /bridge/config`) — all additive over v6 |
 
 ## Two front-door modes
 

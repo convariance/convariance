@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="260" viewBox="0 0 820 260" role="img" aria-label="convariance: a live conversation streams in, Claude Code listens and contributes typed inline signals back into the room">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5B8DEF"/>
+    </marker>
+    <marker id="arrowBack" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#F2B84B"/>
+    </marker>
+  </defs>
+
+  <!-- canvas -->
+  <rect x="1" y="1" width="818" height="258" rx="18" fill="#0B1120" stroke="#1E293B" stroke-width="2"/>
+
+  <!-- ── top lane: the room → agent → Claude Code ─────────────────── -->
+
+  <!-- the room -->
+  <rect x="36" y="44" width="212" height="84" rx="12" fill="#111A2C" stroke="#243049"/>
+  <text x="56" y="72" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#E7ECF5">🎙 the room</text>
+  <text x="56" y="94" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="12.5" fill="#94A0B8">live transcript — speak or type,</text>
+  <text x="56" y="112" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="12.5" fill="#94A0B8">Web Speech API, no STT service</text>
+
+  <!-- agent -->
+  <rect x="304" y="44" width="212" height="84" rx="12" fill="#111A2C" stroke="#33518F"/>
+  <text x="324" y="72" font-family="Georgia, 'Times New Roman', serif" font-size="16" font-weight="700" fill="#5B8DEF">convariance</text>
+  <text x="324" y="94" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="12.5" fill="#94A0B8">one Node process, keyless:</text>
+  <text x="324" y="112" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11.5" fill="#7E8CA8">web UI · stdio MCP · SSE</text>
+
+  <!-- Claude Code -->
+  <rect x="572" y="44" width="212" height="84" rx="12" fill="#111A2C" stroke="#243049"/>
+  <text x="592" y="72" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#E7ECF5">✳ Claude Code</text>
+  <text x="592" y="94" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="12.5" fill="#94A0B8">parked on a blocking wait,</text>
+  <text x="592" y="112" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="12.5" fill="#94A0B8">zero tokens while idle</text>
+
+  <!-- forward arrows -->
+  <line x1="248" y1="86" x2="300" y2="86" stroke="#5B8DEF" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="274" y="76" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="10.5" fill="#5B8DEF">finished</text>
+  <text x="274" y="102" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="10.5" fill="#5B8DEF">thoughts</text>
+  <line x1="516" y1="86" x2="568" y2="86" stroke="#5B8DEF" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="542" y="76" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="10.5" fill="#5B8DEF">wakes</text>
+
+  <!-- ── bottom lane: the typed contribution flowing back ─────────── -->
+
+  <!-- return path: Claude Code → signal card → the room -->
+  <path d="M 678 128 L 678 188 L 632 188" fill="none" stroke="#F2B84B" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arrowBack)"/>
+  <path d="M 216 188 L 142 188 L 142 128" fill="none" stroke="#F2B84B" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arrowBack)"/>
+  <text x="179" y="180" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="10.5" fill="#F2B84B">inline, while</text>
+  <text x="179" y="204" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="10.5" fill="#F2B84B">people talk</text>
+
+  <!-- signal card -->
+  <rect x="220" y="160" width="408" height="56" rx="10" fill="#111A2C" stroke="#243049"/>
+  <rect x="220" y="160" width="5" height="56" rx="2.5" fill="#F2B84B"/>
+  <text x="240" y="183" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="12.5" font-weight="700" fill="#F2B84B">💡 Idea</text>
+  <text x="240" y="203" font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif" font-size="12.5" fill="#CBD5E4">“The drain-mode gateway is keyless — that ships by Friday.”</text>
+
+  <!-- transcript line floating above the room, feeding in -->
+  <text x="36" y="30" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" fill="#64748B">“…so what could we actually ship by Friday?”</text>
+</svg>

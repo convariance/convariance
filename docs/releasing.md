@@ -68,13 +68,7 @@ build, `pnpm check`, `pnpm test`, `pnpm smoke`, then the pack sanity step
 Everything must pass keyless. There is no Pages deployment anymore — the web
 UI ships inside the package and is served by the gateway itself.
 
-## Downstream consumer
-
-The private Convariance Cloud repo (`tobiasstrebitzer/convariance-cloud`)
-consumes this package. Flag any breaking change to the wire protocol or the
-package API so the cloud side can be updated in lockstep.
-
-Migration map from the pre-0.2 scoped packages:
+## Migration from the pre-0.2 scoped packages
 
 | Old | New |
 |---|---|
